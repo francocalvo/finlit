@@ -1,0 +1,12 @@
+# Python artifacts
+/.coverage
+/.pycache
+/.pytest_cache
+/.venv
+/dist
+
+# Direnv cache
+/.direnv
+
+# Nix artifacts
+/result
