@@ -1,7 +1,11 @@
 {
   inputs = {
-    nixpkgs.url = "github:NixOS/nixpkgs?ref=nixos-23.05";
+    nixpkgs.url = "github:NixOS/nixpkgs?ref=nixos-23.11";
+
+    # flake-utils
+    systems.url = "github:nix-systems/x86_64-linux";
     flake-utils.url = "github:numtide/flake-utils";
+    flake-utils.inputs.systems.follows = "systems";
 
     poetry2nix = {
       url = "github:nix-community/poetry2nix";
@@ -10,50 +14,53 @@
     };
   };
 
-  outputs =
-    { self
-    , nixpkgs
-    , flake-utils
+  outputs = { self, nixpkgs, systems, flake-utils, poetry2nix }:
+    flake-utils.lib.eachDefaultSystem (system:
+      let
+        inherit (poetry2nix.lib.mkPoetry2Nix { inherit pkgs; })
+          mkPoetryApplication;
 
-    , poetry2nix
-    }: flake-utils.lib.eachDefaultSystem (system:
-    let
-      pkgs = nixpkgs.legacyPackages.${system};
-      python = pkgs.python311;
+        pkgs = import nixpkgs {
+          inherit system;
+          config.allowUnfree = true; # Propietary software
+        };
 
-      builder = poetry2nix.legacyPackages.${system}.mkPoetryApplication;
-    in
-    {
-      packages.default = builder {
-        inherit python;
+        python = pkgs.python311;
 
-        projectDir = ./.;
-      };
+        app = mkPoetryApplication {
+          inherit python;
+          preferWheels = true;
+          projectDir = self;
+        };
+      in {
 
-      devShells.default = pkgs.mkShell {
-        nativeBuildInputs = [
-          python
-        ] ++ (with python.pkgs; [
-          black
-          pip
-          pytest
-          pytest-cov
-        ]) ++ (with pkgs; [
-          engage
-          nixpkgs-fmt
-          poetry
-          pyright
-          ruff
-        ]) ++ (with pkgs.nodePackages; [
-          markdownlint-cli
-        ]);
+        packages.default = app;
 
-        NIX_PYTHON_SITE_PACKAGES = python.sitePackages;
-      };
+        devShells.default = pkgs.mkShell {
+          nativeBuildInputs = [ python ]
+            ++ (with python.pkgs; [ black pip pytest pytest-cov ])
+            ++ (with pkgs; [
+              engage
+              nixpkgs-fmt
+              poetry
+              pyright
+              ruff
+              nodejs-slim_21
+              beancount
+            ]) ++ (with pkgs.nodePackages; [ markdownlint-cli ]);
 
-      checks = {
-        packagesDefault = self.packages.${system}.default;
-        devShellsDefault = self.devShells.${system}.default;
-      };
-    });
+          NIX_PYTHON_SITE_PACKAGES = python.sitePackages;
+
+          # pkgs.iconv
+          # pkgs.glibc
+          # pkgs.pythonManylinuxPackages.manylinux2014Package
+          shellHook = ''
+            export LD_LIBRARY_PATH="${
+              pkgs.lib.makeLibraryPath [ pkgs.zlib ]
+            }:$LD_LIBRARY_PATH"
+
+            export LD_LIBRARY_PATH="${pkgs.stdenv.cc.cc.lib}/lib:$LD_LIBRARY_PATH"
+          '';
+        };
+      });
 }

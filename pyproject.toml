@@ -25,6 +25,10 @@ finlit = "finlit._main:main"
 
 [tool.poetry.dependencies]
 python = "^3.11"
+pandas = "^2.2.0"
+numpy = "^1.26.4"
+pyarrow = "^15.0.0"
+beancount = "^2.3.6"
 
 [tool.black]
 line-length = 88
