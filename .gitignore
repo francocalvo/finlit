@@ -10,3 +10,6 @@
 
 # Nix artifacts
 /result
+
+postgres/
+grafana/

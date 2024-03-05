@@ -1,6 +1,6 @@
 {
   inputs = {
-    nixpkgs.url = "github:NixOS/nixpkgs?ref=nixos-23.11";
+    nixpkgs.url = "github:NixOS/nixpkgs?ref=nixos-23.05";
 
     # flake-utils
     systems.url = "github:nix-systems/x86_64-linux";
@@ -44,9 +44,9 @@
               nixpkgs-fmt
               poetry
               pyright
-              ruff
-              nodejs-slim_21
+              nodejs-slim
               beancount
+              pgcli
             ]) ++ (with pkgs.nodePackages; [ markdownlint-cli ]);
 
           NIX_PYTHON_SITE_PACKAGES = python.sitePackages;
