@@ -5,7 +5,14 @@ from argparse import ArgumentParser, BooleanOptionalAction
 from logging.config import dictConfig
 from pathlib import Path
 
+# ---------------------------------
+# CONSTANTS
+START_YEAR = 2023
+START_MONTH = 1
 
+
+# ---------------------------------
+# FUNCTIONS
 def setup_logger(verbose: bool) -> None:
     """
     Set up the logger for the application.
@@ -70,7 +77,7 @@ def create_parser() -> ArgumentParser:
     parser.add_argument(
         "--host",
         dest="host",
-        required=True,
+        required=False,
         help="Host for the Postgres database",
         default="localhost",
     )
@@ -78,7 +85,7 @@ def create_parser() -> ArgumentParser:
     parser.add_argument(
         "--port",
         dest="port",
-        required=True,
+        required=False,
         help="Port for the Postgres database",
         default="5432",
     )
@@ -86,7 +93,7 @@ def create_parser() -> ArgumentParser:
     parser.add_argument(
         "--user",
         dest="user",
-        required=True,
+        required=False,
         help="User for the Postgres database",
         default="postgres",
     )
@@ -94,15 +101,17 @@ def create_parser() -> ArgumentParser:
     parser.add_argument(
         "--password",
         dest="password",
-        required=True,
+        required=False,
         help="Password for the Postgres database",
+        default="postgres",
     )
 
     parser.add_argument(
         "--database",
         dest="database",
-        required=True,
+        required=False,
         help="Database name for the Postgres database",
+        default="finances"
     )
 
     return parser
