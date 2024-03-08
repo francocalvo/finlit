@@ -1,5 +1,5 @@
 """
-Module that contains the ExpensesTable class, which is a subclass of the Table class.
+Module that contains the AllPostingsTable class, which is a subclass of the Table class.
 """
 from logging import getLogger
 
@@ -14,16 +14,16 @@ from pgloader.tables.base_table import Table
 logger = getLogger()
 
 
-class AllExpensesTable(Table):
+class AllPostingsTable(Table):
     """
-    Table object for the expenses table.
+    Table object for the postings table.
     """
 
     def __init__(self, ledger: Ledger, engine: Engine, table_name: str) -> None:
         """
-        Initialize the table  object for the expenses table.
+        Initialize the table  object for the postings table.
         """
-        logger.debug("Initializing the AllExpensesTable object.")
+        logger.debug("Initializing the AllPostingsTable object.")
         super().__init__(ledger, engine, table_name)
 
     def drop(self) -> None:
@@ -60,11 +60,10 @@ class AllExpensesTable(Table):
                     CREATE TABLE IF NOT EXISTS {self._schema}.{self.table_name} (
                         date DATE NOT NULL,
                         account TEXT NOT NULL,
-                        category TEXT NOT NULL,
-                        subcategory TEXT NOT NULL,
                         payee TEXT,
                         narration TEXT NOT NULL,
-                        amount_ars DECIMAL NOT NULL,
+                        amount DECIMAL NOT NULL,
+                        currency TEXT NOT NULL,
                         amount_usd DECIMAL NOT NULL
                     );
                     """
@@ -82,13 +81,11 @@ class AllExpensesTable(Table):
         SELECT
             date AS date,
             account AS account,
-            LEAF(ROOT(account, 2)) as category,
-            LEAF(ROOT(account, 3)) as subcategory,
             payee AS payee,
             narration AS narration,
-            NUMBER(CONVERT(POSITION, 'ARS', DATE)) AS amount_ars,
+            NUMBER AS amount,
+            currency as currency,
             NUMBER(CONVERT(POSITION, 'USD', DATE)) AS amount_usd
-        WHERE account ~ '^Expenses'
         ORDER BY date DESC
         """
 
@@ -110,11 +107,10 @@ class AllExpensesTable(Table):
             dtype={
                 "date": DATE,
                 "account": TEXT,
-                "category": TEXT,
-                "subcategory": TEXT,
                 "payee": TEXT,
                 "narration": TEXT,
-                "amount_ars": DECIMAL,
+                "amount": DECIMAL,
+                "currency": TEXT,
                 "amount_usd": DECIMAL,
             },
         )
