@@ -111,7 +111,15 @@ def create_parser() -> ArgumentParser:
         dest="database",
         required=False,
         help="Database name for the Postgres database",
-        default="finances"
+        default="finances",
+    )
+
+    parser.add_argument(
+        "--grafanareader_password",
+        dest="grafanareader_password",
+        required=False,
+        help="Password for the GrafanaReader user",
+        default="password",
     )
 
     return parser

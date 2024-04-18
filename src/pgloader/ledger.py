@@ -29,7 +29,7 @@ class Ledger:
 
     def run_query(
         self, query: str
-    ) -> Tuple[List[Tuple[str, type]], List[Dict[str, str]]]:
+    ) -> Tuple[List[Tuple[str, type]], List[Dict[str, type]]]:
         """
         Run the query on the entries and return the result.
         """

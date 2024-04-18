@@ -44,15 +44,6 @@ class AllBankPostingsTable(Table):
         Create the table in the database.
         """
         with self.engine.connect() as connection:
-            logger.debug("Creating the schema 'fin' if it doesn't exist.")
-            connection.execute(
-                text(
-                    f"""
-                    CREATE SCHEMA IF NOT EXISTS {self._schema};
-                    """
-                )
-            )
-
             logger.debug("Creating the table %s.", self.table_name)
             connection.execute(
                 text(

@@ -8,10 +8,12 @@ from pgloader.tables.all_expenses import AllExpensesTable
 from pgloader.tables.all_income import AllIncomeTable
 from pgloader.tables.all_postings import AllPostingsTable
 from pgloader.tables.base_table import Table
+from pgloader.tables.network_trajectory import NetworthTrajectory
 
 available_tables: Dict[str, Type[Table]] = {
     "all_expenses": AllExpensesTable,
     "all_income": AllIncomeTable,
     "all_postings": AllPostingsTable,
     "all_bank_postings": AllBankPostingsTable,
+    "networth_projections": NetworthTrajectory,
 }
