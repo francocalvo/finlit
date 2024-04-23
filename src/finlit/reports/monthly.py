@@ -46,7 +46,7 @@ def get_total_expenses_for_month(_ledger: Ledger, year: int, month: int) -> floa
     Return a list of expenses for the given year and month.
     """
 
-    logger.debug("Getting total expenses for month")
+    logger.info("Getting total expenses for month")
 
     query = f"""SELECT
           SUM(CONVERT(position, 'USD', date)) AS pos
@@ -220,4 +220,5 @@ def create_monthly_report(ledger: Ledger, year: int, month: int) -> None:
         width=400,
     )
 
+    logger.info("Monthly report created")
     st.write(expenses)
