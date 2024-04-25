@@ -1,3 +1,7 @@
+"""
+Progress for Financial Independence Retire Early (FIRE) journey.
+"""
+
 from datetime import datetime
 from logging import getLogger
 
@@ -6,10 +10,9 @@ import pandas as pd
 import plotly.graph_objects as go
 import pytz
 import streamlit as st
-from sqlalchemy import create_engine
-
 from finlit.caching import Ledger, get_ledger
 from finlit.utils import create_parser, setup_logger
+from sqlalchemy import create_engine
 
 tz = pytz.timezone("America/Argentina/Cordoba")
 
