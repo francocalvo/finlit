@@ -1,3 +1,8 @@
+"""
+
+Finlit - Personal Finances Dashboard.
+"""  # noqa: N999
+
 from datetime import datetime
 from logging import getLogger
 
