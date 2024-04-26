@@ -12,7 +12,7 @@ from pandas import DataFrame
 from sqlalchemy import create_engine
 
 from finlit.caching import Ledger, get_ledger
-from finlit.datasets import NetworthTrajectory
+from finlit.data.datasets import NetworthTrajectory
 from finlit.utils import create_parser, setup_logger
 
 tz = pytz.timezone("America/Argentina/Cordoba")

@@ -4,7 +4,7 @@ Module that contains the IncomeTable class, which is a subclass of the Table cla
 
 from datetime import date, datetime
 from logging import getLogger
-from typing import Tuple
+from typing import Any, Tuple
 
 import numpy as np
 import numpy_financial as npf
@@ -12,6 +12,7 @@ import pandas as pd
 import pytz
 from dateutil import rrule
 from dateutil.relativedelta import relativedelta
+from finlit.data.datasets import Dataset
 from pgloader.ledger import Ledger
 from sqlalchemy.engine import Engine
 
@@ -22,7 +23,7 @@ FIRST_AVAILABLE_YEAR = 2023
 FIRST_AVAILABLE_MONTH = 1
 
 
-class NetworthTrajectory:
+class NetworthTrajectory(Dataset):
     """
     Table object for the income table.
     """
@@ -224,7 +225,7 @@ class NetworthTrajectory:
 
         return (abs(incomes) - abs(expenses)) / self._interval
 
-    def build(self) -> pd.DataFrame:
+    def build(self, **_: dict[str, Any]) -> pd.DataFrame:
         """
         Build the dataframe for the network trajectories.
         """
