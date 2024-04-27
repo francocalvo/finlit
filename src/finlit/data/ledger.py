@@ -22,7 +22,8 @@ class Ledger:
         """
         Load the ledger file and store the entries, errors, and options.
         """
-        entries, errors, options = load_file(ledger_path)
+        self.path = ledger_path
+        entries, errors, options = load_file(self.path)
 
         self.entries = entries
         self.errors = errors
@@ -35,3 +36,10 @@ class Ledger:
         Run the query on the entries and return the result.
         """
         return run_query(self.entries, self.options, query)
+
+
+def ledger_hash(ledger: Ledger) -> int:
+    """
+    Return the hash of the ledger file.
+    """
+    return hash(ledger)
