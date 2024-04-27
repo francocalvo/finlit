@@ -104,3 +104,94 @@ def create_parser() -> ArgumentParser:
     )
 
     return parser
+
+
+style_css = """
+<style>
+
+.reportview-container .sidebar-content {{
+    padding-top: 0;
+}}
+.reportview-container .main .block-container {{
+    padding-top: 0;
+}}
+
+/* Remove blank space at the center canvas */
+.st-emotion-cache-z5fcl4 {
+   position: relative;
+   top: -62px;
+   }
+
+[data-testid="block-container"] {
+    padding-left: 2rem;
+    padding-right: 2rem;
+    padding-top: 0rem;
+    padding-bottom: 0rem;
+    margin-bottom: -7rem;
+}
+
+[data-testid="stVerticalBlock"] {
+    padding-left: 0rem;
+    padding-right: 0rem;
+}
+
+[data-testid="stMetric"] {
+    background-color: #393939;
+    text-align: center;
+    padding: 15px 0;
+}
+
+[data-testid="stMetricLabel"] {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+[data-testid="stMetricDeltaIcon-Up"] {
+    position: relative;
+    left: 38%;
+    -webkit-transform: translateX(-50%);
+    -ms-transform: translateX(-50%);
+    transform: translateX(-50%);
+}
+
+[data-testid="stMetricDeltaIcon-Down"] {
+    position: relative;
+    left: 38%;
+    -webkit-transform: translateX(-50%);
+    -ms-transform: translateX(-50%);
+    transform: translateX(-50%);
+}
+
+</style>
+"""
+
+
+def format_number(num: float, *, prefix: str = "", posfix: str = "") -> str:
+    """
+    Format a number to a human readable format.
+
+    Args:
+    ----
+        num (float): Number to format.
+        prefix (str): Prefix to add to the formatted number.
+        posfix (str): Posfix to add to the formatted number.
+
+    """
+    million = 1000000
+    thousand = 1000
+    formatted = f"{num:.2f}"
+    if num > million:
+        formatted = (
+            f"{num // million} M"
+            if not num % million
+            else f"{round(num / million, 1)} M"
+        )
+    elif num > thousand * 100:
+        formatted = (
+            f"{num // thousand} K"
+            if not num % thousand
+            else f"{round(num / thousand, 1)} K"
+        )
+
+    return f"{prefix}{formatted}{posfix}"
