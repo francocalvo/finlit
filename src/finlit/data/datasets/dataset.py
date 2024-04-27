@@ -5,9 +5,9 @@ Base class for all datasets.
 from abc import ABC, abstractmethod
 from typing import Any
 
+from finlit.constants import INITAL_MONTH, INITAL_YEAR
 from finlit.data.ledger import Ledger
 from pandas import DataFrame
-from pgloader.utils import START_MONTH, START_YEAR
 from sqlalchemy.engine import Engine
 
 
@@ -21,8 +21,8 @@ class Dataset(ABC):
         ledger: Ledger,
         engine: Engine,
         table_name: str,
-        first_available_year: int = START_YEAR,
-        first_available_month: int = START_MONTH,
+        first_available_year: int = INITAL_YEAR,
+        first_available_month: int = INITAL_MONTH,
     ) -> None:
         """
         Initialize the table object.
