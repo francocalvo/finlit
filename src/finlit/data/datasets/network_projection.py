@@ -13,7 +13,7 @@ import pytz
 from dateutil import rrule
 from dateutil.relativedelta import relativedelta
 from finlit.data.datasets import Dataset
-from pgloader.ledger import Ledger
+from finlit.data.ledger import Ledger
 from sqlalchemy.engine import Engine
 
 logger = getLogger()
@@ -23,7 +23,7 @@ FIRST_AVAILABLE_YEAR = 2023
 FIRST_AVAILABLE_MONTH = 1
 
 
-class NetworthTrajectory(Dataset):
+class NetworthTrajectoryDataset(Dataset):
     """
     Table object for the income table.
     """
