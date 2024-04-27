@@ -26,7 +26,7 @@ finlit = "finlit._main:main"
 pgloader = "pgloader._main:main"
 
 [tool.poetry.dependencies]
-python = "^3.11"
+python = "^3.12"
 pandas = "^2.2.0"
 numpy = "^1.26.4"
 pyarrow = "^15.0.0"
@@ -44,19 +44,14 @@ numpy-financial = "^1.0.0"
 altair = "^5.3.0"
 plotly = "^5.21.0"
 chart-studio = "^1.1.0"
+pandera = {extras = ["mypy"], version = "^0.18.3"}
+duckdb = "0.10.1"
 
 [tool.poetry.group.dev.dependencies]
 jupyter = "^1.0.0"
 
 [tool.black]
 line-length = 88
-
-[tool.mypy]
-python_version = "3.11"
-warn_return_any = true
-warn_unused_configs = true
-ignore_missing_imports = true
-
 
 [tool.pyright]
 exclude = [

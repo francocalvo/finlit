@@ -1,6 +1,6 @@
 {
   inputs = {
-    nixpkgs.url = "github:NixOS/nixpkgs?ref=nixos-23.05";
+    nixpkgs.url = "github:NixOS/nixpkgs?ref=nixos-unstable";
 
     # flake-utils
     systems.url = "github:nix-systems/x86_64-linux";
@@ -25,7 +25,7 @@
           config.allowUnfree = true; # Propietary software
         };
 
-        python = pkgs.python311;
+        python = pkgs.python312;
 
         app = mkPoetryApplication {
           inherit python;
