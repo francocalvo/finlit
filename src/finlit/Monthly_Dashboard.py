@@ -31,7 +31,7 @@ from finlit.viz.monthly_expenses import (
 
 st.set_page_config(
     page_title="Personal Finances Dashboard",
-    page_icon="🏂",
+    page_icon="./assets/logo.png",
     layout="wide",
     initial_sidebar_state="expanded",
 )
