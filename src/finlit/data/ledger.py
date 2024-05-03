@@ -37,9 +37,15 @@ class Ledger:
         """
         return run_query(self.entries, self.options, query)
 
+    def __hash__(self) -> int:
+        """
+        Return the hash of the ledger file.
+        """
+        return hash(frozenset([frozenset(str(entr) for entr in self.entries)]))
+
 
 def ledger_hash(ledger: Ledger) -> int:
     """
     Return the hash of the ledger file.
     """
-    return hash(ledger)
+    return hash(frozenset(str(entr) for entr in ledger.entries))

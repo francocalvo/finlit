@@ -12,9 +12,9 @@ import pandas as pd
 import pytz
 from dateutil import rrule
 from dateutil.relativedelta import relativedelta
+
 from finlit.data.datasets import Dataset
 from finlit.data.ledger import Ledger
-from sqlalchemy.engine import Engine
 
 logger = getLogger()
 
@@ -31,7 +31,6 @@ class NetworthTrajectoryDataset(Dataset):
     def __init__(  # noqa: PLR0913
         self,
         ledger: Ledger,
-        engine: Engine,
         *,
         start_year: int = FIRST_AVAILABLE_YEAR,
         start_month: int = FIRST_AVAILABLE_MONTH,
@@ -47,7 +46,6 @@ class NetworthTrajectoryDataset(Dataset):
 
         Keywords arguments:
         - ledger: Ledger object
-        - engine: Engine object
         - table_name: str
 
         Important attribues:
@@ -62,7 +60,6 @@ class NetworthTrajectoryDataset(Dataset):
         logger.debug("Initializing the NetworthTrajectory object.")
 
         self._ledger: Ledger = ledger
-        self._engine: Engine = engine
 
         self._interval: int = interval
         self._interest_rate: float = interest_rate

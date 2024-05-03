@@ -13,6 +13,10 @@ from finlit.data.transformations.expenses_historic_ratios import (
     expenses_historic_ratios,
 )
 from finlit.data.transformations.expenses_showcase import expenses_showcase
+from finlit.data.transformations.networth_projections import (
+    NetworthTrajectory,
+    TrajectoryParams,
+)
 
 __all__ = [
     "all_expenses_period",
@@ -22,4 +26,6 @@ __all__ = [
     "expenses_categorized_historic",
     "expenses_showcase",
     "expenses_historic_ratios",
+    "NetworthTrajectory",
+    "TrajectoryParams",
 ]

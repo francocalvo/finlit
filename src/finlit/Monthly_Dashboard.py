@@ -143,12 +143,15 @@ left_over = (income_ars * IDEAL_EXPENSE_RATIO) - expenses_ars
 left_over_str = format_number(left_over, prefix="$")
 
 # Calculate days left from today to the end of the month of periodo
-next_month = datetime.strptime(periodo, "%Y-%m-%d").replace(tzinfo=TZ) + timedelta(
-    days=30
-)
+next_month = datetime.strptime(periodo, "%Y-%m-%d").replace(tzinfo=TZ).date().replace(
+    day=28
+) + timedelta(days=4)
 last_day = next_month - timedelta(days=next_month.day)
-days_left = (last_day - datetime.now(tz=TZ)).days
-daily_budget = 0 if days_left < 0 else left_over / days_left
+days_left = (last_day - datetime.now(tz=TZ).date()).days + 1
+logger.info("Days left: %s", days_left)
+
+
+daily_budget = 0 if days_left <= 0 else left_over / days_left
 daily_budget_str = format_number(daily_budget, prefix="$")
 
 max_cat_expense = expenses_per_cat["expenses_usd"].max()
@@ -205,8 +208,6 @@ with cols[0]:
 
 with cols[1]:
     st.subheader("All Expenses")
-
-    logger.info("All expenses: %s", expenses_period)
 
     st.dataframe(
         expenses_showcase(expenses_period),
