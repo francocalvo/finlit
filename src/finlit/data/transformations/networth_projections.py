@@ -104,15 +104,29 @@ class NetworthTrajectory:
             months=+self.params.trailing_months
         )
 
-    def _get_date_array(self) -> list[date]:
-        period = rrule.rrule(
-            rrule.MONTHLY,
-            dtstart=date(self._date_until.year, self._date_until.month, 1),
-            bymonthday=1,
-            count=self.params.years * 12,
+    def _get_date_array(self, *, add_offset: bool = False) -> list[date]:
+        initial_date = datetime(
+            year=INITAL_YEAR, month=INITAL_MONTH, day=1, tzinfo=TZ
+        ).date()
+
+        offset = (
+            (
+                (self._date_until.year - initial_date.year) * 12
+                + self._date_until.month
+                - initial_date.month
+            )
+            if add_offset
+            else 0
         )
 
-        return [d.date() for d in period]
+        return list(
+            rrule.rrule(
+                rrule.MONTHLY,
+                dtstart=self._date_until if not add_offset else initial_date,
+                bymonthday=1,
+                count=self.params.years * 12 + offset,
+            )
+        )
 
     def _run_query(self, query: str) -> float:
         _, res = self.ledger.run_query(query)
@@ -121,7 +135,13 @@ class NetworthTrajectory:
         except IndexError:
             return 0.0
 
-    def _networth_series(self) -> pd.DataFrame:
+    def networth_series(self) -> pd.DataFrame:
+        """
+        Return the networth series.
+
+        The networth series is the series of the networth for each month.
+        It counts from the initial date until the current date.
+        """
         periods = rrule.rrule(
             rrule.MONTHLY,
             dtstart=date(self.params.first_year, self.params.first_month, 1),
@@ -137,15 +157,19 @@ class NetworthTrajectory:
                     AND Account ~ '^Assets|^Liabilities'
                 """
             amount = self._run_query(query)
-            series.append((period.date(), amount))
+            series.append((period, amount))
 
-        return pd.DataFrame(series, columns=["date", "networth"])[:-1]
+        return pd.DataFrame(series, columns=["date", "networth"])
 
     @st.cache_data
     def _get_projection(
-        _self, initial: float, contrib: float, col_name: str
+        _self,  # noqa: N805
+        initial: float,
+        contrib: float,
+        col_name: str,
     ) -> pd.DataFrame:
-        periods = _self._get_date_array()
+        periods = _self._get_date_array()  # noqa: SLF001
+
         fv_monthly_contributions = np.array(
             [
                 npf.fv(
@@ -167,7 +191,7 @@ class NetworthTrajectory:
 
     @st.cache_data(
         hash_funcs={
-            "finlit.data.transformations.networth_projections.NetworthTrajectory": lambda x: (
+            "finlit.data.transformations.networth_projections.NetworthTrajectory": lambda x: (  # noqa: E501
                 networth_hash(x.ledger, x.params)
             ),
         },
@@ -185,7 +209,7 @@ class NetworthTrajectory:
         probable_contrib = income - expenses
         possible_contrib = income * self.params.save_rate / 100
         conservative_contrib = probable_contrib * 0.75
-        ideal_contrib = calculate.ideal_contribution(
+        optimal_contrib = calculate.optimal_contribution(
             net_worth,
             self.params.return_rate,
             self.params.years,
@@ -199,10 +223,9 @@ class NetworthTrajectory:
         logger.debug("Possible contribution: %s", possible_contrib)
         logger.debug("Probable contribution: %s", probable_contrib)
         logger.debug("Conservative contribution: %s", conservative_contrib)
-        logger.debug("Ideal contribution: %s", ideal_contrib)
+        logger.debug("Ideal contribution: %s", optimal_contrib)
 
-        networth_series = self._networth_series()
-
+        networth_series = self.networth_series()
         # Get the projections
         df_projection_conservative = pd.concat(
             [
@@ -222,7 +245,7 @@ class NetworthTrajectory:
 
         df_projection_optimal = pd.concat(
             [
-                self._get_projection(net_worth, ideal_contrib, "optimal_value"),
+                self._get_projection(net_worth, optimal_contrib, "optimal_value"),
                 networth_series.rename(columns={"networth": "optimal_value"}),
             ]
         )
@@ -233,6 +256,19 @@ class NetworthTrajectory:
                 networth_series.rename(columns={"networth": "possible_value"}),
             ]
         )
+
+        # Remove repeated dates
+        df_possible = df_possible.drop_duplicates(subset=["date"])
+        df_projection_conservative = df_projection_conservative.drop_duplicates(
+            subset=["date"]
+        )
+        df_projection_probable = df_projection_probable.drop_duplicates(subset=["date"])
+        df_projection_optimal = df_projection_optimal.drop_duplicates(subset=["date"])
+
+        # df_possible.set_index("date", inplace=True)
+        # df_projection_conservative.set_index("date", inplace=True)
+        # df_projection_probable.set_index("date", inplace=True)
+        # df_projection_optimal.set_index("date", inplace=True)
 
         # Merge the projections
         return (
@@ -245,7 +281,7 @@ class NetworthTrajectory:
 
     # @st.cache_data(
     #     hash_funcs={
-    #         "finlit.data.transformations.networth_projections.NetworthTrajectory": lambda x: (
+    #         "finlit.data.transformations.networth_projections.NetworthTrajectory": lambda x: ( # noqa: E501
     #             hash(x.params)
     #         ),
     #     },
@@ -260,31 +296,38 @@ class NetworthTrajectory:
         )
 
         # Calculate the monthly rate of return
-        # monthly_rate = (1 + self.params.return_rate) ** (1 / 12) - 1
         monthly_rate = self.params.return_rate / 12
 
         # Generate a date range from today monthly until the retirement
-        start_date = pd.Timestamp(year=INITAL_YEAR, month=INITAL_MONTH, day=1)
         startdate_dt = datetime(
             year=INITAL_YEAR, month=INITAL_MONTH, day=1, tzinfo=TZ
         ).date()
+
         months_from_start_date = (
             datetime.now(TZ).date().month
             - startdate_dt.month
             + (datetime.now(TZ).date().year - startdate_dt.year) * 12
         )
-        logger.info("Months from start date: %s", months_from_start_date)
+        logger.debug("Months from start date: %s", months_from_start_date)
 
-        months = self.params.years * 12 + months_from_start_date
-
-        date_range = pd.date_range(start=start_date, periods=months, freq="ME")
+        date_range = self._get_date_array(add_offset=True)
+        #
+        # periods = list(
+        #     rrule.rrule(
+        #         rrule.MONTHLY,
+        #         dtstart=date(self.params.first_year, self.params.first_month, 1),
+        #         until=self._date_until,
+        #     )
+        # )
+        #
+        # date_range = periods + date_range
 
         # Initialize the DataFrame
         df_coast = pd.DataFrame(columns=["date", "age", "coast_value"])
 
         # Fill the date column
         # My birthday is on 1998/12/29
-        born = datetime(1998, 12, 29)
+        born = datetime(1998, 12, 29, tzinfo=TZ)
         df_coast["date"] = date_range
         df_coast["age"] = [
             float(
@@ -295,11 +338,10 @@ class NetworthTrajectory:
             for today in df_coast["date"]
         ]
 
-        # Calculate the month differences between each date in the range and today's date
         current_date = pd.Timestamp.today().normalize()
-        months_difference = (
-            date_range - current_date
-        ).days / 30.44  # Approximate month count
+        months_difference = [
+            (today - current_date).days / 30.44 for today in df_coast["date"]
+        ]
 
         # Calculate future value for each month
         df_coast["coast_value"] = [

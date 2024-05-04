@@ -250,13 +250,13 @@ def net_worth(ledger: Ledger, date_until: datetime | None = None) -> float:
     return assets(ledger, date_until) - liabilities(ledger, date_until)
 
 
-def ideal_contribution(
+def optimal_contribution(
     initial: float, return_rate: float, years: float, dream_total: float
 ) -> float:
     """
-    Get the ideal contribution for the networth trajectory.
+    Get the optimal contribution for the networth trajectory.
 
-    The ideal contribution is the amount of money that the user should
+    The optimal contribution is the amount of money that the user should
     contribute to their net worth to reach their FIRE goal.
 
     Args:
@@ -267,7 +267,7 @@ def ideal_contribution(
         dream_total (float): The total amount of money to reach the goal.
 
     """
-    logger.debug("Calculating the ideal contribution.")
+    logger.debug("Calculating the optimal contribution.")
     logger.debug("Params: %s", (initial, return_rate, years, dream_total))
     return abs(
         float(

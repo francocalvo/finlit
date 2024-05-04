@@ -1,8 +1,7 @@
 """
 Progress for Financial Independence Retire Early (FIRE) journey.
-"""
+"""  # noqa: N999
 
-from datetime import datetime
 from logging import getLogger
 
 import altair as alt
@@ -86,7 +85,7 @@ def networth_summary(source: pd.DataFrame) -> alt.Chart:
         source (pd.DataFrame): DataFrame with the net worth projections.
 
     """
-    today = datetime.now(tz=tz).date()
+    today = pd.Timestamp.today().normalize()
 
     source = source.set_index("date")
     # Less than today
@@ -119,15 +118,15 @@ def networth_projection(source: pd.DataFrame, coast_df: pd.DataFrame) -> alt.Lay
     # born = datetime(1998, 12, 29)
     # source["age_at_date"] = source["date"].apply(
     #     lambda today: float(
-    #         today.year - born.year - ((today.month, today.day) < (born.month, born.day))
+    #   today.year - born.year - ((today.month, today.day) < (born.month, born.day))
     #     )
     # )
+    # Merge source and coast_df on 'date'
+    merged = source.merge(coast_df, on="date", how="left")
 
     # Create a selection that chooses the nearest point & selects based on x-value
     source = source.set_index("date")
     source = source.reset_index().melt("date", var_name="category", value_name="y")
-
-    # Merge source and coast_df on 'date'
 
     # Chart for the coast fire projection data
     coast_line = (
@@ -191,10 +190,10 @@ def networth_projection(source: pd.DataFrame, coast_df: pd.DataFrame) -> alt.Lay
         opacity=alt.condition(nearest, alt.value(1), alt.value(0))  # type: ignore # noqa: PGH003
     )
 
-
     # Draw line at coast fire value
     coast_rule = (
-        alt.Chart(coast_df)
+        alt.Chart(merged)
+        # .transform_pivot("category", value="y", groupby=["date"])
         .mark_rule(color="green")
         .encode(
             x="date:T",
@@ -216,26 +215,6 @@ def networth_projection(source: pd.DataFrame, coast_df: pd.DataFrame) -> alt.Lay
                     type="quantitative",
                     title="Coast Value",
                     format=".2s",
-                ),
-            ],
-        )
-        .add_params(nearest)
-    )
-
-    # Draw a rule at the location of the selection
-    rules = (
-        alt.Chart(source)
-        .transform_pivot("category", value="y", groupby=["date"])
-        .mark_rule(color="gray")
-        .encode(
-            x="date:T",
-            opacity=alt.condition(nearest, alt.value(1), alt.value(0)),  # type: ignore # noqa: PGH003
-            tooltip=[
-                alt.Tooltip(
-                    "date:T",
-                    type="temporal",
-                    title="Date",
-                    format=("%b %Y"),
                 ),
                 alt.Tooltip(
                     "conservative_value",
@@ -278,8 +257,6 @@ def networth_projection(source: pd.DataFrame, coast_df: pd.DataFrame) -> alt.Lay
 # Dataframes
 
 #######################
-# Layout
-
 
 cols = st.columns([1, 2], gap="large")
 
@@ -313,14 +290,21 @@ logger.info("Net worth: %s", net_worth)
 network_projection = NetworthTrajectory(ledger, params)
 
 network_projection_df = network_projection.build()
+
 coast_projection_df = network_projection.build_coast_fire()
 
 probable_contrib = income - expenses
 possible_contrib = income * params.save_rate / 100
 conservative_contrib = probable_contrib * 0.75
-ideal_contrib = calculate.ideal_contribution(
+optimal_contrib = calculate.optimal_contribution(
     net_worth, params.return_rate, params.years, params.dream_total
 )
+
+#######################
+
+# Layout
+
+#######################
 
 metrics_cols = st.columns(4)
 
@@ -329,7 +313,7 @@ st.write("The following contributions are calculated based on the last 6 months.
 metrics_cols[0].metric("Possible Contribution", format_number(possible_contrib))
 metrics_cols[1].metric("Probable Contribution", format_number(probable_contrib))
 metrics_cols[2].metric("Conservative Contribution", format_number(conservative_contrib))
-metrics_cols[3].metric("Ideal Contribution", format_number(ideal_contrib))
+metrics_cols[3].metric("Optimal Contribution", format_number(optimal_contrib))
 
 
 networth_projection_chart = networth_projection(
@@ -340,6 +324,3 @@ st.altair_chart(networth_projection_chart, use_container_width=True)  # type: ig
 networth_summary_chart = networth_summary(network_projection_df)
 st.altair_chart(networth_summary_chart, use_container_width=True)
 
-
-with cols[1]:
-    pass
