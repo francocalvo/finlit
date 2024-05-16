@@ -11,7 +11,7 @@ import streamlit as st
 from sqlalchemy import create_engine
 
 from finlit.data import Ledger
-from finlit.data.datasets import AllExpensesDataset, AllIncomeDataset
+from finlit.data.datasets import AllExpensesDataset, AllIncomeDataset, BalanceDataset
 from finlit.data.transformations import TrajectoryParams, calculate
 from finlit.data.transformations.networth_projections import NetworthTrajectory
 from finlit.utils import create_parser, format_number, setup_logger, style_css
@@ -33,6 +33,8 @@ logger = getLogger()
 logger.info("Starting the application.")
 logger.debug("Verbose mode is activated.")
 ledger = Ledger(args.ledger)
+
+GREEN_BG_COLOR = "#50fa7b"
 
 
 #######################
@@ -76,24 +78,37 @@ st.title("FIRE Progress")
 # Plots & Functions
 
 
-def networth_summary(source: pd.DataFrame) -> alt.LayerChart:
+def networth_summary(
+    source_df: pd.DataFrame, balance_df: pd.DataFrame
+) -> alt.LayerChart:
     """
     Create the net worth summary chart.
 
+    I'll comment that I could use balance_df to get the net worth values but the idea is
+    to have a day to day net worth valuation. If I get many years of data, I could use
+    the balance_df.
+
     Args:
     ----
-        source (pd.DataFrame): DataFrame with the net worth projections.
+        source_df (pd.DataFrame): DataFrame with the net worth projections.
+        balance_df (pd.DataFrame): DataFrame with the balance sheet data.
 
     """
     # Last month of the data
     today = pd.Timestamp.today().normalize()
     last_month = today - pd.DateOffset(months=1)
+    line_color = "#8be9fd"
 
-    source = source.set_index("date")
+    merged = source_df.merge(balance_df, on="date", how="inner")
+
+    source_df = source_df.set_index("date")
+
     # Less than today
-    source = source.loc[source.index < last_month]
+    source_df = source_df.loc[source_df.index < last_month]
+    balance_df = balance_df.loc[balance_df["date"] < last_month]
+    merged = merged.loc[merged["date"] < last_month]
 
-    logger.info("Networth summary: %s", source)
+    logger.info("Networth summary: %s", source_df)
 
     nearest = alt.selection_point(
         nearest=True,
@@ -103,7 +118,7 @@ def networth_summary(source: pd.DataFrame) -> alt.LayerChart:
     )
 
     line = (
-        alt.Chart(source.reset_index())
+        alt.Chart(source_df.reset_index())
         .mark_line()
         .encode(
             x=alt.X("date:T", title="Date", axis=alt.Axis(format=("%b %Y"))),
@@ -111,37 +126,49 @@ def networth_summary(source: pd.DataFrame) -> alt.LayerChart:
                 "probable_value:Q",
                 title="Networth",
                 axis=alt.Axis(format="~s"),
-                scale=alt.Scale(domain=[0, source["probable_value"].max() * 1.5]),
+                scale=alt.Scale(
+                    domain=[
+                        bal_df["liabilities"].max() * 1.5,
+                        source_df["probable_value"].max() * 1.5,
+                    ]
+                ),
             ),
-            # tooltip=[
-            #     alt.Tooltip(
-            #         "date:T",
-            #         type="temporal",
-            #         title="Date",
-            #         format=("%b %Y"),
-            #     ),
-            #     alt.Tooltip(
-            #         "probable_value:Q",
-            #         type="quantitative",
-            #         title="Net worth",
-            #     ),
-            # ],
+            color=alt.value(line_color),
         )
     )
 
-    # # Draw points on the line, and highlight based on selection
-    # points = line.mark_point().encode(
-    #     opacity=alt.condition(nearest, alt.value(1), alt.value(0))  # type: ignore # noqa: PGH003
-    # )
+    # This bar has both columns: libilities and assets
+    assets_bar = (
+        alt.Chart(balance_df)
+        .mark_bar(width=30)
+        .encode(
+            x=alt.X("date:T", title="Date", axis=alt.Axis(format=("%b %Y"))),
+            y=alt.Y("assets:Q", title="Networth", axis=alt.Axis(format="~s")),
+            opacity=alt.OpacityValue(0.2),
+            color=alt.value(GREEN_BG_COLOR),
+        )
+    )
+
+    liabilities_bar = (
+        alt.Chart(balance_df)
+        .mark_bar(width=30)
+        .encode(
+            x=alt.X("date:T", title="Date", axis=alt.Axis(format=("%b %Y"))),
+            y=alt.Y("liabilities:Q", title="Networth", axis=alt.Axis(format="~s")),
+            opacity=alt.OpacityValue(0.2),
+            color=alt.value("#ff5555"),
+        )
+    )
 
     # Draw line at coast fire value
-    coast_rule = (
-        alt.Chart(source.reset_index())
+    ver_rule = (
+        alt.Chart(merged)
         .mark_point()
         .encode(
             x=alt.X("date:T", title="Date", axis=alt.Axis(format=("%b %Y"))),
             y=alt.Y("probable_value:Q", title="Networth", axis=alt.Axis(format="~s")),
-            opacity=alt.condition(nearest, alt.value(1), alt.value(0)),  # type: ignore # noqa: PGH003
+            color=alt.value(line_color),  # Specific color for coast fire
+            opacity=alt.condition(nearest, alt.value(1), alt.value(0.5)),  # type: ignore # noqa: PGH003
             tooltip=[
                 alt.Tooltip(
                     "date:T",
@@ -155,12 +182,24 @@ def networth_summary(source: pd.DataFrame) -> alt.LayerChart:
                     title="Net worth",
                     format=".2s",
                 ),
+                alt.Tooltip(
+                    "assets:Q",
+                    type="quantitative",
+                    title="Assets",
+                    format=".2s",
+                ),
+                alt.Tooltip(
+                    "liabilities:Q",
+                    type="quantitative",
+                    title="Liabilities",
+                    format=".2s",
+                ),
             ],
         )
         .add_params(nearest)
     )
 
-    return alt.layer(line, coast_rule)
+    return alt.layer(liabilities_bar, assets_bar, line, ver_rule)
 
 
 @st.cache_data
@@ -208,7 +247,7 @@ def networth_projection(source: pd.DataFrame, coast_df: pd.DataFrame) -> alt.Lay
         .encode(
             x="date:T",
             y="coast_value:Q",
-            color=alt.value("lightgreen"),  # Light green area color
+            color=alt.value(GREEN_BG_COLOR),  # Light green area color
         )
     )
 
@@ -256,7 +295,7 @@ def networth_projection(source: pd.DataFrame, coast_df: pd.DataFrame) -> alt.Lay
     coast_rule = (
         alt.Chart(merged)
         # .transform_pivot("category", value="y", groupby=["date"])
-        .mark_rule(color="green")
+        .mark_rule(color=GREEN_BG_COLOR)
         .encode(
             x="date:T",
             opacity=alt.condition(nearest, alt.value(1), alt.value(0)),  # type: ignore # noqa: PGH003
@@ -383,5 +422,8 @@ networth_projection_chart = networth_projection(
 )
 st.altair_chart(networth_projection_chart, use_container_width=True)  # type: ignore [reportArgumentType]
 
-networth_summary_chart = networth_summary(network_projection_df)
+bal = BalanceDataset(ledger, dummy, "balance")
+bal_df = bal.build()
+
+networth_summary_chart = networth_summary(network_projection_df, bal_df)
 st.altair_chart(networth_summary_chart, use_container_width=True)  # type: ignore [reportArgumentType]

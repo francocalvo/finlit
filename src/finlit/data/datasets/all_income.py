@@ -7,9 +7,10 @@ from typing import Any
 
 import pandas as pd
 import streamlit as st
+from sqlalchemy.engine import Engine
+
 from finlit.data.datasets.dataset import Dataset
 from finlit.data.ledger import Ledger, ledger_hash
-from sqlalchemy.engine import Engine
 
 logger = getLogger()
 
