@@ -67,6 +67,7 @@ def net_expense_ratio(
             all_expenses
         WHERE
             Subcategory != 'Comisiones'
+            AND narration != 'Comprar lavasecarropas Samsung Eco Bubble IA 9.5kg'
         GROUP BY
             Y,
             M
