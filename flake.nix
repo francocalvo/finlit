@@ -47,6 +47,7 @@
               nodejs-slim
               beancount
               pgcli
+              lazygit
             ]) ++ (with pkgs.nodePackages; [ markdownlint-cli ]);
 
           NIX_PYTHON_SITE_PACKAGES = python.sitePackages;

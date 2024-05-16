@@ -76,7 +76,7 @@ st.title("FIRE Progress")
 # Plots & Functions
 
 
-def networth_summary(source: pd.DataFrame) -> alt.Chart:
+def networth_summary(source: pd.DataFrame) -> alt.LayerChart:
     """
     Create the net worth summary chart.
 
@@ -85,20 +85,82 @@ def networth_summary(source: pd.DataFrame) -> alt.Chart:
         source (pd.DataFrame): DataFrame with the net worth projections.
 
     """
+    # Last month of the data
     today = pd.Timestamp.today().normalize()
+    last_month = today - pd.DateOffset(months=1)
 
     source = source.set_index("date")
     # Less than today
-    source = source.loc[source.index < today]
+    source = source.loc[source.index < last_month]
 
-    return (
+    logger.info("Networth summary: %s", source)
+
+    nearest = alt.selection_point(
+        nearest=True,
+        on="mouseover",
+        fields=["date"],
+        empty=False,
+    )
+
+    line = (
         alt.Chart(source.reset_index())
         .mark_line()
         .encode(
             x=alt.X("date:T", title="Date", axis=alt.Axis(format=("%b %Y"))),
-            y=alt.Y("probable_value:Q", title="Networth", axis=alt.Axis(format="~s")),
+            y=alt.Y(
+                "probable_value:Q",
+                title="Networth",
+                axis=alt.Axis(format="~s"),
+                scale=alt.Scale(domain=[0, source["probable_value"].max() * 1.5]),
+            ),
+            # tooltip=[
+            #     alt.Tooltip(
+            #         "date:T",
+            #         type="temporal",
+            #         title="Date",
+            #         format=("%b %Y"),
+            #     ),
+            #     alt.Tooltip(
+            #         "probable_value:Q",
+            #         type="quantitative",
+            #         title="Net worth",
+            #     ),
+            # ],
         )
     )
+
+    # # Draw points on the line, and highlight based on selection
+    # points = line.mark_point().encode(
+    #     opacity=alt.condition(nearest, alt.value(1), alt.value(0))  # type: ignore # noqa: PGH003
+    # )
+
+    # Draw line at coast fire value
+    coast_rule = (
+        alt.Chart(source.reset_index())
+        .mark_point()
+        .encode(
+            x=alt.X("date:T", title="Date", axis=alt.Axis(format=("%b %Y"))),
+            y=alt.Y("probable_value:Q", title="Networth", axis=alt.Axis(format="~s")),
+            opacity=alt.condition(nearest, alt.value(1), alt.value(0)),  # type: ignore # noqa: PGH003
+            tooltip=[
+                alt.Tooltip(
+                    "date:T",
+                    type="temporal",
+                    title="Date",
+                    format=("%b %Y"),
+                ),
+                alt.Tooltip(
+                    "probable_value:Q",
+                    type="quantitative",
+                    title="Net worth",
+                    format=".2s",
+                ),
+            ],
+        )
+        .add_params(nearest)
+    )
+
+    return alt.layer(line, coast_rule)
 
 
 @st.cache_data
@@ -247,7 +309,7 @@ def networth_projection(source: pd.DataFrame, coast_df: pd.DataFrame) -> alt.Lay
 
     # Put all the layers into a chart and bind the data
     return alt.layer(coast_chart, line, points, coast_rule).properties(
-        title="Net worth possible trajectories",
+        title="Networth possible trajectories",
         height=600,
     )
 
@@ -284,7 +346,7 @@ params = TrajectoryParams(
     net_worth=net_worth,
 )
 
-logger.info("Net worth: %s", net_worth)
+logger.info("Networth: %s", net_worth)
 
 
 network_projection = NetworthTrajectory(ledger, params)
@@ -322,5 +384,4 @@ networth_projection_chart = networth_projection(
 st.altair_chart(networth_projection_chart, use_container_width=True)  # type: ignore [reportArgumentType]
 
 networth_summary_chart = networth_summary(network_projection_df)
-st.altair_chart(networth_summary_chart, use_container_width=True)
-
+st.altair_chart(networth_summary_chart, use_container_width=True)  # type: ignore [reportArgumentType]
