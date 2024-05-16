@@ -187,7 +187,7 @@ with cols[0]:
             IDEAL_EXPENSE_RATIO,
             CRITICAL_EXPENSE_RATIO,
             "Net Expense Ratio",
-            height=250,
+            height=300,
         ),
         use_container_width=True,
         theme=None,
@@ -199,7 +199,7 @@ with cols[0]:
             IDEAL_EXPENSE_RATIO,
             CRITICAL_EXPENSE_RATIO,
             "Gross Expense Ratio",
-            height=250,
+            height=300,
         ),
         use_container_width=True,
         theme=None,
@@ -214,7 +214,7 @@ with cols[1]:
         use_container_width=True,
         hide_index=True,
         column_order=["Fecha", "Categoria", "Cantidad", "Descripcion"],
-        height=450,
+        height=600,
     )
 
 
