@@ -26,6 +26,7 @@ from finlit.utils import create_parser, format_number, setup_logger, style_css
 from finlit.viz.monthly_expenses import (
     expenses_bar_chart,
     expenses_historic_cat_chart,
+    expenses_pie_chart,
     gauge_expense_chart,
 )
 
@@ -179,31 +180,57 @@ metric_cols[5].metric(label="Ideal Daily Budget", value=daily_budget_str)
 
 st.divider()
 
-cols = st.columns([1, 2], gap="large")
+cols = st.columns(2, gap="large")
 with cols[0]:
-    st.plotly_chart(
-        gauge_expense_chart(
-            net_expense_ratio,
-            IDEAL_EXPENSE_RATIO,
-            CRITICAL_EXPENSE_RATIO,
-            "Net Expense Ratio",
-            height=300,
-        ),
-        use_container_width=True,
-        theme=None,
+    subcols = st.columns(2)
+
+    with subcols[0]:
+        st.plotly_chart(
+            gauge_expense_chart(
+                net_expense_ratio,
+                IDEAL_EXPENSE_RATIO,
+                CRITICAL_EXPENSE_RATIO,
+                "Net Expense Ratio",
+                height=120,
+            ),
+            use_container_width=True,
+            theme=None,
+        )
+
+        st.plotly_chart(
+            gauge_expense_chart(
+                gross_expense_ratio,
+                IDEAL_EXPENSE_RATIO,
+                CRITICAL_EXPENSE_RATIO,
+                "Gross Expense Ratio",
+                height=120,
+            ),
+            use_container_width=True,
+            theme=None,
+        )
+
+    with subcols[1]:
+        pie_chart = expenses_pie_chart(
+            expenses_per_cat,
+            upper_limit=max_cat_expense,
+            title="Monthly expenses per category",
+        )
+
+        st.altair_chart(pie_chart, use_container_width=True)
+
+    chart = expenses_bar_chart(
+        expenses_per_cat,
+        upper_limit=max_cat_expense,
+        title="Monthly expenses per category",
+    )
+    chart_historic = expenses_bar_chart(
+        expenses_per_cat,
+        upper_limit=max_cat_expense,
+        title="Historic monthly expenses per category",
     )
 
-    st.plotly_chart(
-        gauge_expense_chart(
-            gross_expense_ratio,
-            IDEAL_EXPENSE_RATIO,
-            CRITICAL_EXPENSE_RATIO,
-            "Gross Expense Ratio",
-            height=300,
-        ),
-        use_container_width=True,
-        theme=None,
-    )
+    st.altair_chart(chart, use_container_width=True)
+    st.altair_chart(chart_historic, use_container_width=True)
 
 
 with cols[1]:
@@ -214,27 +241,12 @@ with cols[1]:
         use_container_width=True,
         hide_index=True,
         column_order=["Fecha", "Categoria", "Cantidad", "Descripcion"],
-        height=600,
+        height=800,
     )
 
 
 st.divider()
 
-
-chart = expenses_bar_chart(
-    expenses_per_cat,
-    upper_limit=max_cat_expense,
-    title="Monthly expenses per category",
-)
-chart_historic = expenses_bar_chart(
-    expenses_per_cat_historic,
-    upper_limit=max_cat_expense,
-    title="Historic monthly expenses per category",
-)
-
-expenses_cols = st.columns(2, gap="large")
-expenses_cols[0].altair_chart(chart, use_container_width=True)
-expenses_cols[1].altair_chart(chart_historic, use_container_width=True)
 
 st.altair_chart(
     expenses_historic_cat_chart(expenses_historic),  # type: ignore # noqa: PGH003
