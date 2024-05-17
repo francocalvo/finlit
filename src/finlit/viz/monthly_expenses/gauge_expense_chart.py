@@ -16,6 +16,7 @@ def gauge_expense_chart(
     title: str,
     *,
     height: int = 350,
+    width: int = 500,
 ) -> go.Figure:
     """
     Create a gauge chart to display the expense ratio.
@@ -29,7 +30,9 @@ def gauge_expense_chart(
 
     """
 
-    fig = go.Figure(layout=go.Layout(height=height, margin={"t": 0, "b": 0}))
+    fig = go.Figure(
+        layout=go.Layout(height=height, width=width, margin={"t": 0, "b": 0})
+    )
 
     ideal_porcentage = ideal_expense_ratio * 100
     critical_porcentage = critical_expense_ratio * 100
@@ -88,8 +91,8 @@ def gauge_expense_chart(
     )
 
     # Add white background to figure
-    fig.update_layout(title=title, title_y=0)
+    fig.update_layout(title=title, title_y=0, font_size=8)
     # Reduce margins and padding
-    fig.update_layout(margin={"t": 0, "b": 0, "l": 0, "r": 0})
+    fig.update_layout(margin={"t": 15, "b": 15, "l": 15, "r": 15})
 
     return fig
