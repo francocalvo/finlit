@@ -6,15 +6,18 @@ from logging import getLogger
 
 import altair as alt
 import pandas as pd
+import plotly.graph_objects as go
 import pytz
 import streamlit as st
 from sqlalchemy import create_engine
+from streamlit.components.v1 import html
 
 from finlit.data import Ledger
 from finlit.data.datasets import AllExpensesDataset, AllIncomeDataset, BalanceDataset
 from finlit.data.transformations import TrajectoryParams, calculate
 from finlit.data.transformations.networth_projections import NetworthTrajectory
 from finlit.utils import create_parser, format_number, setup_logger, style_css
+from finlit.viz.fire_progress import networth_projection, networth_summary
 
 tz = pytz.timezone("America/Argentina/Cordoba")
 
@@ -34,8 +37,6 @@ logger.info("Starting the application.")
 logger.debug("Verbose mode is activated.")
 ledger = Ledger(args.ledger)
 
-GREEN_BG_COLOR = "#50fa7b"
-
 
 #######################
 # Page configuration
@@ -44,7 +45,25 @@ alt.themes.enable("dark")
 
 #######################
 # CSS styling
+
 st.markdown(style_css, unsafe_allow_html=True)
+
+# Center in div all objects with class stPlotlyChart
+# and the parent div
+st.markdown(
+    """
+  <style>
+    .center-content {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      flex-direction: column; /* Or 'row' depending on your needs */
+      height: 100%; /* Ensure the parent takes up full height */
+    }
+  </style>
+    """,
+    unsafe_allow_html=True,
+)
 
 #######################
 # Sidebar
@@ -75,286 +94,6 @@ st.title("FIRE Progress")
 
 #######################
 
-# Plots & Functions
-
-
-def networth_summary(
-    source_df: pd.DataFrame, balance_df: pd.DataFrame
-) -> alt.LayerChart:
-    """
-    Create the net worth summary chart.
-
-    I'll comment that I could use balance_df to get the net worth values but the idea is
-    to have a day to day net worth valuation. If I get many years of data, I could use
-    the balance_df.
-
-    Args:
-    ----
-        source_df (pd.DataFrame): DataFrame with the net worth projections.
-        balance_df (pd.DataFrame): DataFrame with the balance sheet data.
-
-    """
-    # Last month of the data
-    today = pd.Timestamp.today().normalize()
-    last_month = today - pd.DateOffset(months=1)
-    line_color = "#8be9fd"
-
-    merged = source_df.merge(balance_df, on="date", how="inner")
-
-    source_df = source_df.set_index("date")
-
-    # Less than today
-    source_df = source_df.loc[source_df.index < last_month]
-    balance_df = balance_df.loc[balance_df["date"] < last_month]
-    merged = merged.loc[merged["date"] < last_month]
-
-    logger.info("Networth summary: %s", source_df)
-
-    nearest = alt.selection_point(
-        nearest=True,
-        on="mouseover",
-        fields=["date"],
-        empty=False,
-    )
-
-    line = (
-        alt.Chart(source_df.reset_index())
-        .mark_line()
-        .encode(
-            x=alt.X("date:T", title="Date", axis=alt.Axis(format=("%b %Y"))),
-            y=alt.Y(
-                "probable_value:Q",
-                title="Networth",
-                axis=alt.Axis(format="~s"),
-                scale=alt.Scale(
-                    domain=[
-                        bal_df["liabilities"].max() * 1.5,
-                        source_df["probable_value"].max() * 1.5,
-                    ]
-                ),
-            ),
-            color=alt.value(line_color),
-        )
-    )
-
-    # This bar has both columns: libilities and assets
-    assets_bar = (
-        alt.Chart(balance_df)
-        .mark_bar(width=30)
-        .encode(
-            x=alt.X("date:T", title="Date", axis=alt.Axis(format=("%b %Y"))),
-            y=alt.Y("assets:Q", title="Networth", axis=alt.Axis(format="~s")),
-            opacity=alt.OpacityValue(0.2),
-            color=alt.value(GREEN_BG_COLOR),
-        )
-    )
-
-    liabilities_bar = (
-        alt.Chart(balance_df)
-        .mark_bar(width=30)
-        .encode(
-            x=alt.X("date:T", title="Date", axis=alt.Axis(format=("%b %Y"))),
-            y=alt.Y("liabilities:Q", title="Networth", axis=alt.Axis(format="~s")),
-            opacity=alt.OpacityValue(0.2),
-            color=alt.value("#ff5555"),
-        )
-    )
-
-    # Draw line at coast fire value
-    ver_rule = (
-        alt.Chart(merged)
-        .mark_point()
-        .encode(
-            x=alt.X("date:T", title="Date", axis=alt.Axis(format=("%b %Y"))),
-            y=alt.Y("probable_value:Q", title="Networth", axis=alt.Axis(format="~s")),
-            color=alt.value(line_color),  # Specific color for coast fire
-            opacity=alt.condition(nearest, alt.value(1), alt.value(0.5)),  # type: ignore # noqa: PGH003
-            tooltip=[
-                alt.Tooltip(
-                    "date:T",
-                    type="temporal",
-                    title="Date",
-                    format=("%b %Y"),
-                ),
-                alt.Tooltip(
-                    "probable_value:Q",
-                    type="quantitative",
-                    title="Net worth",
-                    format=".2s",
-                ),
-                alt.Tooltip(
-                    "assets:Q",
-                    type="quantitative",
-                    title="Assets",
-                    format=".2s",
-                ),
-                alt.Tooltip(
-                    "liabilities:Q",
-                    type="quantitative",
-                    title="Liabilities",
-                    format=".2s",
-                ),
-            ],
-        )
-        .add_params(nearest)
-    )
-
-    return alt.layer(liabilities_bar, assets_bar, line, ver_rule)
-
-
-@st.cache_data
-def networth_projection(source: pd.DataFrame, coast_df: pd.DataFrame) -> alt.LayerChart:
-    """
-    Create the net worth projection chart.
-
-    Args:
-    ----
-        source (pd.DataFrame): DataFrame with the net worth projections.
-        coast_df (pd.DataFrame): DataFrame with the coast fire projections.
-
-    """
-
-    # Add age column
-    # # My birthday is on 2024/12/29
-    # born = datetime(1998, 12, 29)
-    # source["age_at_date"] = source["date"].apply(
-    #     lambda today: float(
-    #   today.year - born.year - ((today.month, today.day) < (born.month, born.day))
-    #     )
-    # )
-    # Merge source and coast_df on 'date'
-    merged = source.merge(coast_df, on="date", how="left")
-
-    # Create a selection that chooses the nearest point & selects based on x-value
-    source = source.set_index("date")
-    source = source.reset_index().melt("date", var_name="category", value_name="y")
-
-    # Chart for the coast fire projection data
-    coast_line = (
-        alt.Chart(coast_df)
-        .mark_line(opacity=0.5, strokeDash=[10, 5])
-        .encode(
-            x="date:T",
-            y="coast_value:Q",
-            color=alt.value("#2ca02c"),  # Specific color for coast fire
-        )
-    )
-
-    # Green tinted area under the coast fire projection line
-    coast_area = (
-        alt.Chart(coast_df)
-        .mark_area(opacity=0.2)
-        .encode(
-            x="date:T",
-            y="coast_value:Q",
-            color=alt.value(GREEN_BG_COLOR),  # Light green area color
-        )
-    )
-
-    # Combine the area chart with the line chart
-    coast_chart = alt.layer(coast_line, coast_area)
-
-    nearest = alt.selection_point(
-        nearest=True,
-        on="mouseover",
-        fields=["date"],
-        empty=False,
-    )
-
-    color_domain = [
-        "conservative_value",
-        "probable_value",
-        "possible_value",
-        "optimal_value",
-    ]
-    # Dracula color palette
-    color_range = ["#FFB86C", "#FF79C6", "#BD93F9", "#8BE9FD"]
-
-    # The basic line
-    line = (
-        alt.Chart(source)
-        .mark_line()
-        .encode(
-            color=alt.Color(
-                "category:N",
-                title="Category",
-                scale=alt.Scale(domain=color_domain, range=color_range),
-                # scale=alt.Scale(scheme="dark2"),
-            ),
-            x=alt.X("date:T", title="Date", axis=alt.Axis(format=("%b %Y"))),
-            y=alt.Y("y:Q"),
-        )
-    )
-
-    # Draw points on the line, and highlight based on selection
-    points = line.mark_point().encode(
-        opacity=alt.condition(nearest, alt.value(1), alt.value(0))  # type: ignore # noqa: PGH003
-    )
-
-    # Draw line at coast fire value
-    coast_rule = (
-        alt.Chart(merged)
-        # .transform_pivot("category", value="y", groupby=["date"])
-        .mark_rule(color=GREEN_BG_COLOR)
-        .encode(
-            x="date:T",
-            opacity=alt.condition(nearest, alt.value(1), alt.value(0)),  # type: ignore # noqa: PGH003
-            tooltip=[
-                alt.Tooltip(
-                    "date:T",
-                    type="temporal",
-                    title="Date",
-                    format=("%b %Y"),
-                ),
-                alt.Tooltip(
-                    "age",
-                    type="quantitative",
-                    title="Age",
-                ),
-                alt.Tooltip(
-                    "coast_value",
-                    type="quantitative",
-                    title="Coast Value",
-                    format=".2s",
-                ),
-                alt.Tooltip(
-                    "conservative_value",
-                    type="quantitative",
-                    title="Conservative Value",
-                    format=".2s",
-                ),
-                alt.Tooltip(
-                    "probable_value",
-                    type="quantitative",
-                    title="Probable Value",
-                    format=".2s",
-                ),
-                alt.Tooltip(
-                    "optimal_value",
-                    type="quantitative",
-                    title="Optimal Value",
-                    format=".2s",
-                ),
-                alt.Tooltip(
-                    "possible_value",
-                    type="quantitative",
-                    title="Possible Value",
-                    format=".2s",
-                ),
-            ],
-        )
-        .add_params(nearest)
-    )
-
-    # Put all the layers into a chart and bind the data
-    return alt.layer(coast_chart, line, points, coast_rule).properties(
-        title="Networth possible trajectories",
-        height=600,
-    )
-
-
-#######################
-
 # Dataframes
 
 #######################
@@ -366,13 +105,19 @@ st.subheader("Summary")
 dummy = create_engine("postgresql://postgres:postgres@localhost:5432/finances")
 
 
+# Income and expenses
 all_expenses: pd.DataFrame = AllExpensesDataset(ledger, dummy, "all_expenses").build()
 all_income: pd.DataFrame = AllIncomeDataset(ledger, dummy, "all_income").build()
 
 income = calculate.average_income(all_income, trailing_months)
 expenses = calculate.average_expenses(all_expenses, trailing_months)
+
+# Balance sheet and net worth
+bal = BalanceDataset(ledger, dummy, "balance")
+bal_df = bal.build()
 net_worth = calculate.net_worth(ledger)
 
+# Trajectory parameters
 params = TrajectoryParams(
     return_rate=rate_of_return / 100,
     swr=swr,
@@ -385,15 +130,16 @@ params = TrajectoryParams(
     net_worth=net_worth,
 )
 
-logger.info("Networth: %s", net_worth)
-
+logger.debug("Networth: %s", net_worth)
 
 network_projection = NetworthTrajectory(ledger, params)
 
+# Coasting fire
 network_projection_df = network_projection.build()
-
 coast_projection_df = network_projection.build_coast_fire()
 
+
+# Contributions
 probable_contrib = income - expenses
 possible_contrib = income * params.save_rate / 100
 conservative_contrib = probable_contrib * 0.75
@@ -401,15 +147,70 @@ optimal_contrib = calculate.optimal_contribution(
     net_worth, params.return_rate, params.years, params.dream_total
 )
 
+
+def coast_indicator(
+    value: float, reference: float, title: str, subtitle: str | None = None
+) -> go.Figure:
+    title_text = (
+        title
+        if not subtitle
+        else f"{title}<br><span style='font-size:0.8em;color:gray'>{subtitle}</span>"
+    )
+
+    return go.Figure(
+        go.Indicator(
+            mode="number+delta",
+            value=value,
+            number={"suffix": "%"},
+            delta={
+                "reference": reference,
+                "position": "bottom",
+                "valueformat": ".2%",
+                "relative": True,
+            },
+            title={"text": title_text},
+        )
+    ).update_layout(width=150, height=150, margin={"t": 50, "b": 0, "l": 10, "r": 10})
+
+
+def nw_indicator(
+    value: float,
+    reference: float,
+    title: str,
+    subtitle: str | None = None,
+) -> go.Figure:
+    title_text = (
+        title
+        if not subtitle
+        else f"{title}<br><span style='font-size:0.8em;color:gray'>{subtitle}</span>"
+    )
+    return go.Figure(
+        go.Indicator(
+            mode="number+delta",
+            value=value,
+            number={"prefix": "$"},
+            delta={
+                "reference": reference,
+                "position": "bottom",
+                "valueformat": ".2%",
+                "relative": True,
+            },
+            title={"text": title_text},
+        )
+    ).update_layout(width=150, height=150, margin={"t": 50, "b": 0, "l": 10, "r": 10})
+
+
 #######################
 
 # Layout
 
 #######################
 
+
 metrics_cols = st.columns(4)
 
-st.write("The following contributions are calculated based on the last 6 months.")
+st.write("The contributions are calculated based on the last 6 months.")
+
 
 metrics_cols[0].metric("Possible Contribution", format_number(possible_contrib))
 metrics_cols[1].metric("Probable Contribution", format_number(probable_contrib))
@@ -417,13 +218,69 @@ metrics_cols[2].metric("Conservative Contribution", format_number(conservative_c
 metrics_cols[3].metric("Optimal Contribution", format_number(optimal_contrib))
 
 
-networth_projection_chart = networth_projection(
-    network_projection_df, coast_projection_df
-)
-st.altair_chart(networth_projection_chart, use_container_width=True)  # type: ignore [reportArgumentType]
+networth_cols = st.columns([1, 3])
 
-bal = BalanceDataset(ledger, dummy, "balance")
-bal_df = bal.build()
+with networth_cols[0]:
+    last_year_net_worth = bal_df.iloc[-13].net_worth
+    logger.debug("Last year net worth: %s", last_year_net_worth)
+
+    net_worth_indicator = nw_indicator(
+        net_worth, last_year_net_worth, "Net Worth", "YoY variation"
+    )
+
+    coast_number = calculate.coast_fire(
+        params.dream_total, params.return_rate, params.years
+    )
+    current_coast = net_worth / coast_number * 100
+
+    coast_indicator_fig = coast_indicator(
+        current_coast, 100, "Coast FIRE", "Coast FIRE percentage"
+    )
+
+    st.plotly_chart(net_worth_indicator)
+    st.plotly_chart(coast_indicator_fig)
+
+
+with networth_cols[1]:
+    networth_projection_chart = networth_projection(
+        network_projection_df, coast_projection_df
+    )
+    st.altair_chart(networth_projection_chart, use_container_width=True)  # type: ignore [reportArgumentType]
+
 
 networth_summary_chart = networth_summary(network_projection_df, bal_df)
 st.altair_chart(networth_summary_chart, use_container_width=True)  # type: ignore [reportArgumentType]
+
+
+html(
+    """
+<script>
+console.log("HEEEEEEEREEEEE")
+// wait 2 seconds 
+setTimeout(addCenterContentClass, 1);
+console.log("Waiting 2 seconds")
+
+// define fn
+function addCenterContentClass() {
+  console.log("Adding center-content class");
+  element = parent.document.querySelector('.stPlotlyChart')
+  console.log(element);
+  if (element) {
+    let parent = element.parentElement;
+    while (parent) {
+      console.log(parent);
+      if (parent.matches('div[data-testid="column"]')) {
+        // Add the center-content class to the parent element
+        console.log("Adding center-content class to parent");
+        parent.classList.add('center-content');
+        break;
+      }
+      parent = parent.parentElement;
+    }
+  }
+}
+</script>
+""",
+    height=0,
+    width=0,
+)
