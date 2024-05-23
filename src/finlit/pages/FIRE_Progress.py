@@ -13,8 +13,9 @@ from sqlalchemy import create_engine
 from streamlit.components.v1 import html
 
 from finlit.data import Ledger
-from finlit.data.datasets import AllExpensesDataset, AllIncomeDataset, BalanceDataset
+from finlit.data.datasets import AllExpensesDataset, AllIncomeDataset
 from finlit.data.transformations import TrajectoryParams, calculate
+from finlit.data.transformations.networth_history import NetworthHistory
 from finlit.data.transformations.networth_projections import NetworthTrajectory
 from finlit.utils import create_parser, format_number, setup_logger, style_css
 from finlit.viz.fire_progress import networth_projection, networth_summary
@@ -57,9 +58,8 @@ st.markdown(
       display: flex;
       justify-content: center;
       align-items: center;
-      flex-direction: column; /* Or 'row' depending on your needs */
-      height: 100%; /* Ensure the parent takes up full height */
     }
+
   </style>
     """,
     unsafe_allow_html=True,
@@ -104,7 +104,6 @@ st.subheader("Summary")
 
 dummy = create_engine("postgresql://postgres:postgres@localhost:5432/finances")
 
-
 # Income and expenses
 all_expenses: pd.DataFrame = AllExpensesDataset(ledger, dummy, "all_expenses").build()
 all_income: pd.DataFrame = AllIncomeDataset(ledger, dummy, "all_income").build()
@@ -112,12 +111,19 @@ all_income: pd.DataFrame = AllIncomeDataset(ledger, dummy, "all_income").build()
 income = calculate.average_income(all_income, trailing_months)
 expenses = calculate.average_expenses(all_expenses, trailing_months)
 
-# Balance sheet and net worth
-bal = BalanceDataset(ledger, dummy, "balance")
-bal_df = bal.build()
-net_worth = calculate.net_worth(ledger)
 
+networth_history = NetworthHistory(ledger)
+bal_df = networth_history.build()
 
+net_worth = bal_df.iloc[-1].networth
+invested_money = calculate.invested_money(ledger)
+
+test_df = bal_df.copy()
+test_df = test_df[(test_df["date"].dt.day == 28)]
+
+logger.info(test_df)
+
+logger.info("Net worth: %s", bal_df.head())
 
 # Trajectory parameters
 params = TrajectoryParams(
@@ -130,6 +136,7 @@ params = TrajectoryParams(
     income=income,
     expenses=expenses,
     net_worth=net_worth,
+    net_worth_df=bal_df,
 )
 
 logger.debug("Net worth: %s", net_worth)
@@ -139,7 +146,6 @@ network_projection = NetworthTrajectory(ledger, params)
 # Coasting fire
 network_projection_df = network_projection.build()
 coast_projection_df = network_projection.build_coast_fire()
-
 
 # Contributions
 probable_contrib = income - expenses
@@ -153,26 +159,35 @@ optimal_contrib = calculate.optimal_contribution(
 def coast_indicator(
     value: float, reference: float, title: str, subtitle: str | None = None
 ) -> go.Figure:
+    """
+    Create a indicator plot for Coast FIRE and FIRE.
+    """
     title_text = (
         title
         if not subtitle
-        else f"{title}<br><span style='font-size:0.8em;color:gray'>{subtitle}</span>"
+        else f"""<span style='margin-bottom:2cm;font-size:1rem;font-weight:bold;'>{title}</span><br><br><span style='margin-top:2cm;font-size:0.8rem;color:gray'>{subtitle}</span>"""
     )
 
     return go.Figure(
         go.Indicator(
             mode="number+delta",
-            value=value,
-            number={"suffix": "%"},
+            value=round(value, 2),
+            number={
+                "suffix": "%",
+                "font": {
+                    "size": 35,
+                },
+            },
             delta={
                 "reference": reference,
                 "position": "bottom",
-                "valueformat": ".2%",
-                "relative": True,
+                "valueformat": ".2",
+                "suffix": "%",
             },
+            domain={"x": [0, 1], "y": [0, 1]},
             title={"text": title_text},
         )
-    ).update_layout(width=150, height=150, margin={"t": 50, "b": 0, "l": 10, "r": 10})
+    ).update_layout(width=120, height=110, margin={"t": 50, "b": 0, "l": 10, "r": 10})
 
 
 def nw_indicator(
@@ -184,22 +199,29 @@ def nw_indicator(
     title_text = (
         title
         if not subtitle
-        else f"{title}<br><span style='font-size:0.8em;color:gray'>{subtitle}</span>"
+        else f"""<span style='margin-bottom:2cm;font-size:1rem;font-weight:bold;'>{title}</span><br><br><span style='margin-top:2cm;font-size:0.8rem;color:gray'>{subtitle}</span>"""
     )
     return go.Figure(
         go.Indicator(
             mode="number+delta",
             value=value,
-            number={"prefix": "$"},
+            number={
+                "prefix": "$",
+                "font": {
+                    "size": 35,
+                },
+            },
             delta={
                 "reference": reference,
                 "position": "bottom",
                 "valueformat": ".2%",
                 "relative": True,
             },
-            title={"text": title_text},
+            title={
+                "text": title_text,
+            },
         )
-    ).update_layout(width=150, height=150, margin={"t": 50, "b": 0, "l": 10, "r": 10})
+    ).update_layout(width=120, height=110, margin={"t": 50, "b": 0, "l": 10, "r": 10})
 
 
 #######################
@@ -223,23 +245,45 @@ metrics_cols[3].metric("Optimal Contribution", format_number(optimal_contrib))
 networth_cols = st.columns([1, 3])
 
 with networth_cols[0]:
-    last_year_net_worth = bal_df.iloc[-13].net_worth
+    last_year_net_worth = bal_df.iloc[-365].networth
 
     net_worth_indicator = nw_indicator(
         net_worth, last_year_net_worth, "Net Worth", "YoY variation"
     )
 
+    invested_indicator = nw_indicator(
+        invested_money, last_year_net_worth, "Invested money", "YoY variation"
+    )
+
     coast_number = calculate.coast_fire(
         params.dream_total, params.return_rate, params.years
     )
-    current_coast = net_worth / coast_number * 100
 
+    current_coast = net_worth / coast_number * 100
+    ly_coast = last_year_net_worth / coast_number * 100
+    logger.info("Current Coast FIRE: %s", current_coast)
     coast_indicator_fig = coast_indicator(
-        current_coast, 100, "Coast FIRE", "Coast FIRE percentage"
+        current_coast, ly_coast, "Coast FIRE", "Coast FIRE percentage"
     )
 
-    st.plotly_chart(net_worth_indicator)
-    st.plotly_chart(coast_indicator_fig)
+    current_fire = net_worth / params.dream_total * 100
+    ly_fire = last_year_net_worth / params.dream_total * 100
+    fire_indicator_fig = coast_indicator(
+        current_fire,
+        ly_fire,
+        "FIRE",
+        "FIRE percentage",
+    )
+
+    indics_cols = st.columns(2)
+
+    with indics_cols[0]:
+        st.plotly_chart(net_worth_indicator)
+        st.plotly_chart(coast_indicator_fig)
+
+    with indics_cols[1]:
+        st.plotly_chart(invested_indicator)
+        st.plotly_chart(fire_indicator_fig)
 
 
 with networth_cols[1]:
@@ -249,7 +293,7 @@ with networth_cols[1]:
     st.altair_chart(networth_projection_chart, use_container_width=True)  # type: ignore [reportArgumentType]
 
 
-networth_summary_chart = networth_summary(network_projection_df, bal_df)
+networth_summary_chart = networth_summary(bal_df)
 st.altair_chart(networth_summary_chart, use_container_width=True)  # type: ignore [reportArgumentType]
 
 

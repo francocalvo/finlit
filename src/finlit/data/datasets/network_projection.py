@@ -129,7 +129,7 @@ class NetworthTrajectoryDataset(Dataset):
         """
         query = f"""
         SELECT
-            SUM(CONVERT(POSITION, 'USD', DATE)) AS amount_usd
+            SUM(CONVERT(VALUE(POSITION, DATE), 'USD', DATE)) AS amount_usd
         WHERE account ~ '^Assets'
             AND DATE < DATE('{self._date_until}')
         """
@@ -143,7 +143,7 @@ class NetworthTrajectoryDataset(Dataset):
         """
         query = f"""
         SELECT
-            SUM(CONVERT(POSITION, 'USD', DATE)) AS amount_usd
+            SUM(CONVERT(VALUE(POSITION, DATE), 'USD', DATE)) AS amount_usd
         WHERE account ~ '^Liabilities'
             AND DATE < DATE('{self._date_until}')
         """

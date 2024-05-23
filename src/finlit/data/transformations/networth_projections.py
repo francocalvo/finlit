@@ -27,9 +27,10 @@ class TrajectoryParams:
     Dataclass for the parameters of the trajectory.
     """
 
+    net_worth_df: pd.DataFrame
+    years: int
     trailing_months: int = 6
     return_rate: float = 0.0528
-    years: int = 30
     swr: float = 3.5
     dream: float = 5000.0
     save_rate: float = 75
@@ -119,6 +120,10 @@ class NetworthTrajectory:
             else 0
         )
 
+        logger.info(
+            "Inside _get_date_array. Years: %s. Offset: %s", self.params.years, offset
+        )  # noqa: E501
+
         return list(
             rrule.rrule(
                 rrule.MONTHLY,
@@ -148,12 +153,11 @@ class NetworthTrajectory:
             until=self._date_until,
         )
 
-
         series: list[Tuple[date, float]] = []
 
         for period in periods:
             query = f"""
-                SELECT SUM(CONVERT(POSITION, 'USD', DATE)) AS amount_usd
+                SELECT SUM(CONVERT(VALUE(POSITION, DATE('{period.date()}')), 'USD', DATE('{period.date()}'))) AS amount_usd
                 WHERE DATE <= DATE('{period.date()}')
                     AND Account ~ '^Assets|^Liabilities'
                 """
@@ -162,24 +166,23 @@ class NetworthTrajectory:
 
         return pd.DataFrame(series, columns=["date", "networth"])
 
-    @st.cache_data
     def _get_projection(
-        _self,  # noqa: N805
+        self,
         initial: float,
         contrib: float,
         col_name: str,
     ) -> pd.DataFrame:
-        periods = _self._get_date_array()  # noqa: SLF001
+        periods = self._get_date_array()
 
         fv_monthly_contributions = np.array(
             [
                 npf.fv(
-                    rate=_self.params.return_rate / 12,
+                    rate=self.params.return_rate / 12,
                     nper=month,
                     pmt=-contrib,
                     pv=-initial,
                 )
-                for month in range(_self.params.years * 12)
+                for month in range(self.params.years * 12)
             ]
         )
 
@@ -226,7 +229,10 @@ class NetworthTrajectory:
         logger.debug("Conservative contribution: %s", conservative_contrib)
         logger.debug("Ideal contribution: %s", optimal_contrib)
 
-        networth_series = self.networth_series()
+        networth_series = pd.DataFrame(
+            self.params.net_worth_df, copy=True, columns=["date", "networth"]
+        )
+
         # Get the projections
         df_projection_conservative = pd.concat(
             [
@@ -311,7 +317,6 @@ class NetworthTrajectory:
         )
 
         date_range = self._get_date_array(add_offset=True)
-
 
         # Initialize the DataFrame
         df_coast = pd.DataFrame(columns=["date", "age", "coast_value"])

@@ -25,7 +25,7 @@
           config.allowUnfree = true; # Propietary software
         };
 
-        python = pkgs.python312;
+        python = pkgs.python311;
 
         app = mkPoetryApplication {
           inherit python;
@@ -37,18 +37,26 @@
         packages.default = app;
 
         devShells.default = pkgs.mkShell {
-          nativeBuildInputs = [ python ]
-            ++ (with python.pkgs; [ black pip pytest pytest-cov ])
-            ++ (with pkgs; [
-              engage
-              nixpkgs-fmt
-              poetry
-              pyright
-              nodejs-slim
-              beancount
-              pgcli
-              lazygit
-            ]) ++ (with pkgs.nodePackages; [ markdownlint-cli ]);
+          nativeBuildInputs = [ python ] ++ (with python.pkgs; [
+            black
+            pip
+            pytest
+            pytest-cov
+            pyqt5
+            pyside2
+            pywayland
+          ]) ++ (with pkgs; [
+            engage
+            nixpkgs-fmt
+            poetry
+            pyright
+            nodejs-slim
+            beancount
+            pgcli
+            qt5.full
+            lazygit
+            csvlens
+          ]) ++ (with pkgs.nodePackages; [ markdownlint-cli ]);
 
           NIX_PYTHON_SITE_PACKAGES = python.sitePackages;
 

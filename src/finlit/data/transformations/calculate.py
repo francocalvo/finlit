@@ -202,7 +202,7 @@ def assets(ledger: Ledger, date_until: datetime | None) -> float:
     """
     query = f"""
         SELECT
-            SUM(convert(Position, 'USD', Date)) as amount_usd
+            SUM(CONVERT(VALUE(Position), 'USD')) as amount_usd
         WHERE Account ~ '^Assets'
             {"and Date < '{self._date_until}'::DATE)" if date_until else ""}
         """
@@ -226,12 +226,35 @@ def liabilities(ledger: Ledger, date_until: datetime | None) -> float:
     """
     query = f"""
         SELECT
-            SUM(convert(Position, 'USD', Date)) as amount_usd
+            SUM(CONVERT(VALUE(Position), 'USD')) as amount_usd
         WHERE Account ~ '^Liabilities'
             {"and Date < '{self._date_until}'::DATE)" if date_until else ""}
         """
 
     _, res = ledger.run_query(query)
+    try:
+        return float(res[0][0].get_only_position().units.number)  # type: ignore # noqa: PGH003
+    except IndexError:
+        return 0.0
+
+
+def invested_money(ledger: Ledger) -> float:
+    """
+    Get the invested money from the ledger.
+
+    Args:
+    ----
+        ledger (Ledger): Ledger object.
+
+    """
+    query = """
+        SELECT
+            SUM(CONVERT(VALUE(Position), 'USD')) as amount_usd
+        WHERE Account ~ '^Assets:Inversiones'
+        """
+
+    _, res = ledger.run_query(query)
+
     try:
         return float(res[0][0].get_only_position().units.number)  # type: ignore # noqa: PGH003
     except IndexError:
@@ -248,7 +271,7 @@ def net_worth(ledger: Ledger, date_until: datetime | None = None) -> float:
         date_until (datetime): Date until which to calculate the net worth.
 
     """
-    return assets(ledger, date_until) - liabilities(ledger, date_until)
+    return assets(ledger, date_until) + liabilities(ledger, date_until)
 
 
 def optimal_contribution(
@@ -268,8 +291,6 @@ def optimal_contribution(
         dream_total (float): The total amount of money to reach the goal.
 
     """
-    logger.debug("Calculating the optimal contribution.")
-    logger.debug("Params: %s", (initial, return_rate, years, dream_total))
     return abs(
         float(
             npf.pmt(

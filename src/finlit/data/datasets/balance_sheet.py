@@ -44,7 +44,7 @@ class BalanceDataset(Dataset):
         SELECT 
             YEAR AS Year,
             MONTH AS Month,
-            NUMBER(ONLY('USD', SUM(CONVERT(POSITION, 'USD', DATE)))) AS AMOUNT
+            NUMBER(ONLY('USD', SUM(CONVERT(VALUE(POSITION, DATE), 'USD', DATE)))) AS AMOUNT
         WHERE Account ~ '^{balance_type}'
         GROUP BY 1,2
         """
@@ -60,8 +60,6 @@ class BalanceDataset(Dataset):
         assets_df = self._base_data("Assets")
         liabilities_df = self._base_data("Liabilities")
 
-
-        logger.debug("Merging the dataframes.")
         balance_df: pd.DataFrame = duckdb.query(
             """
             SELECT
@@ -80,6 +78,4 @@ class BalanceDataset(Dataset):
             """
         ).to_df()
 
-        logger.info("Balance sheet data loaded successfully.")
-        logger.info(balance_df.head())
         return balance_df

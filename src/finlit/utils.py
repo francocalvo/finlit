@@ -108,13 +108,17 @@ def create_parser() -> ArgumentParser:
 
 style_css = """
 <style>
+.reportview-container .sidebar-content {
+    padding-top: 0;
+}
 
-.reportview-container .sidebar-content {{
+.reportview-container .main .block-container {
+    padding: 0;
+}
+
+.block-container {
     padding-top: 0;
-}}
-.reportview-container .main .block-container {{
-    padding-top: 0;
-}}
+}
 
 /* Remove blank space at the center canvas */
 .st-emotion-cache-z5fcl4 {

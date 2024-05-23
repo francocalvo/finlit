@@ -10,13 +10,11 @@ import streamlit as st
 
 from finlit.constants import GREEN_COLOR
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger()
 
 
-@st.cache_data
-def networth_summary(
-    source_df: pd.DataFrame, balance_df: pd.DataFrame
-) -> alt.LayerChart:
+# @st.cache_data
+def networth_summary(source_df: pd.DataFrame) -> alt.LayerChart:
     """
     Create the net worth summary chart.
 
@@ -30,21 +28,17 @@ def networth_summary(
         balance_df (pd.DataFrame): DataFrame with the balance sheet data.
 
     """
+
     # Last month of the data
-    today = pd.Timestamp.today().normalize()
-    last_month = today - pd.DateOffset(months=1)
+    today = pd.Timestamp.today()
+    first_day = pd.Timestamp(today.year, today.month, 1)
     line_color = "#8be9fd"
 
-    merged = source_df.merge(balance_df, on="date", how="inner")
-
-    source_df = source_df.set_index("date")
-
     # Less than today
-    source_df = source_df.loc[source_df.index < last_month]
-    balance_df = balance_df.loc[balance_df["date"] < last_month]
-    merged = merged.loc[merged["date"] < last_month]
-
-    logger.info("Networth summary: %s", source_df)
+    # Filter only the first day of the month
+    source_df = source_df[
+        (source_df["date"].dt.day == 28) & (source_df["date"] < first_day)
+    ]
 
     nearest = alt.selection_point(
         nearest=True,
@@ -59,13 +53,13 @@ def networth_summary(
         .encode(
             x=alt.X("date:T", title="Date", axis=alt.Axis(format=("%b %Y"))),
             y=alt.Y(
-                "probable_value:Q",
+                "networth:Q",
                 title="Networth",
                 axis=alt.Axis(format="~s"),
                 scale=alt.Scale(
                     domain=[
-                        balance_df["liabilities"].max() * 1.5,
-                        source_df["probable_value"].max() * 1.5,
+                        source_df["liabilities"].max() * 1.5,
+                        source_df["networth"].max() * 1.5,
                     ]
                 ),
             ),
@@ -75,7 +69,7 @@ def networth_summary(
 
     # This bar has both columns: libilities and assets
     assets_bar = (
-        alt.Chart(balance_df)
+        alt.Chart(source_df)
         .mark_bar(width=30)
         .encode(
             x=alt.X("date:T", title="Date", axis=alt.Axis(format=("%b %Y"))),
@@ -86,7 +80,7 @@ def networth_summary(
     )
 
     liabilities_bar = (
-        alt.Chart(balance_df)
+        alt.Chart(source_df)
         .mark_bar(width=30)
         .encode(
             x=alt.X("date:T", title="Date", axis=alt.Axis(format=("%b %Y"))),
@@ -98,11 +92,11 @@ def networth_summary(
 
     # Draw line at coast fire value
     ver_rule = (
-        alt.Chart(merged)
+        alt.Chart(source_df)
         .mark_point()
         .encode(
             x=alt.X("date:T", title="Date", axis=alt.Axis(format=("%b %Y"))),
-            y=alt.Y("probable_value:Q", title="Networth", axis=alt.Axis(format="~s")),
+            y=alt.Y("networth:Q", title="Networth", axis=alt.Axis(format="~s")),
             color=alt.value(line_color),  # Specific color for coast fire
             opacity=alt.condition(nearest, alt.value(1), alt.value(0.5)),  # type: ignore # noqa: PGH003
             tooltip=[
@@ -113,7 +107,7 @@ def networth_summary(
                     format=("%b %Y"),
                 ),
                 alt.Tooltip(
-                    "probable_value:Q",
+                    "networth:Q",
                     type="quantitative",
                     title="Net worth",
                     format=".2s",
