@@ -23,7 +23,6 @@ class BalanceDataset(Dataset):
         """
         Initialize the table  object for the income table.
         """
-        logger.debug("Initializing the BalanceDataset object.")
         super().__init__(ledger, engine, table_name)
         self.engine = engine
         self.table_name = table_name
@@ -50,9 +49,7 @@ class BalanceDataset(Dataset):
         GROUP BY 1,2
         """
 
-        logger.debug("Running the query to build the table.")
         _, res = self.ledger.run_query(query)  # type: ignore[] WHAT?
-        logger.debug("Query executed successfully. Creating dataframe.")
 
         return pd.DataFrame(res)
 
@@ -60,12 +57,9 @@ class BalanceDataset(Dataset):
         """
         Build the table in the database.
         """
-        logger.debug("Getting the data for the balance sheet.")
         assets_df = self._base_data("Assets")
         liabilities_df = self._base_data("Liabilities")
 
-        # logger.debug(assets_df.head())
-        # logger.debug(liabilities_df.head())
 
         logger.debug("Merging the dataframes.")
         balance_df: pd.DataFrame = duckdb.query(

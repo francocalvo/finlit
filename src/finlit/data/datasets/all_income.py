@@ -24,7 +24,6 @@ class AllIncomeDataset(Dataset):
         """
         Initialize the table  object for the income table.
         """
-        logger.debug("Initializing the AllIncomeTable object.")
         super().__init__(ledger, engine, table_name)
         self.engine = engine
         self.table_name = table_name
@@ -43,7 +42,6 @@ class AllIncomeDataset(Dataset):
         """
 
         st.session_state["cache_updated"] = True
-        logger.debug(ledger_hash(self.ledger))
 
         query = """
         SELECT
@@ -58,8 +56,5 @@ class AllIncomeDataset(Dataset):
         ORDER BY date DESC
         """
 
-        logger.debug("Running the query to build the table.")
         _, res = self.ledger.run_query(query)  # type: ignore[] WHAT?
-        logger.debug("Query executed successfully. Creating dataframe.")
-
         return pd.DataFrame(res)

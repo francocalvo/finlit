@@ -148,9 +148,6 @@ class NetworthTrajectory:
             until=self._date_until,
         )
 
-        logger.debug(
-            "Networth series. Periods start: %s. End: %s", periods[0], periods[-1]
-        )
 
         series: list[Tuple[date, float]] = []
 
@@ -312,11 +309,9 @@ class NetworthTrajectory:
             - startdate_dt.month
             + (datetime.now(TZ).date().year - startdate_dt.year) * 12
         )
-        logger.debug("Months from start date: %s", months_from_start_date)
 
         date_range = self._get_date_array(add_offset=True)
 
-        logger.debug("Date range start: %s. End: %s", date_range[0], date_range[-1])
 
         # Initialize the DataFrame
         df_coast = pd.DataFrame(columns=["date", "age", "coast_value"])

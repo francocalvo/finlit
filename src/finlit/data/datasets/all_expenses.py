@@ -22,7 +22,6 @@ class AllExpensesDataset(Dataset):
         """
         Initialize the table  object for the expenses table.
         """
-        logger.debug("Initializing the AllExpensesTable object.")
         super().__init__(ledger, engine, table_name)
 
     def build(self, **_: dict[str, Any]) -> pd.DataFrame:
@@ -43,8 +42,6 @@ class AllExpensesDataset(Dataset):
         ORDER BY date DESC
         """
 
-        logger.debug("Running the query to build the table.")
         _types, res = self.ledger.run_query(query)
-        logger.debug("Query executed successfully. Creating dataframe.")
 
         return pd.DataFrame(res)

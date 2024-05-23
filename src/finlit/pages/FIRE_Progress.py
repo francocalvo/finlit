@@ -117,6 +117,8 @@ bal = BalanceDataset(ledger, dummy, "balance")
 bal_df = bal.build()
 net_worth = calculate.net_worth(ledger)
 
+
+
 # Trajectory parameters
 params = TrajectoryParams(
     return_rate=rate_of_return / 100,
@@ -130,7 +132,7 @@ params = TrajectoryParams(
     net_worth=net_worth,
 )
 
-logger.debug("Networth: %s", net_worth)
+logger.debug("Net worth: %s", net_worth)
 
 network_projection = NetworthTrajectory(ledger, params)
 
@@ -222,7 +224,6 @@ networth_cols = st.columns([1, 3])
 
 with networth_cols[0]:
     last_year_net_worth = bal_df.iloc[-13].net_worth
-    logger.debug("Last year net worth: %s", last_year_net_worth)
 
     net_worth_indicator = nw_indicator(
         net_worth, last_year_net_worth, "Net Worth", "YoY variation"
@@ -255,30 +256,31 @@ st.altair_chart(networth_summary_chart, use_container_width=True)  # type: ignor
 html(
     """
 <script>
-console.log("HEEEEEEEREEEEE")
-// wait 2 seconds 
-setTimeout(addCenterContentClass, 1);
-console.log("Waiting 2 seconds")
+function centerPlotly() {
+    // Element streamlit plotly
+    element = parent.document.querySelector('.stPlotlyChart')
 
-// define fn
-function addCenterContentClass() {
-  console.log("Adding center-content class");
-  element = parent.document.querySelector('.stPlotlyChart')
-  console.log(element);
-  if (element) {
-    let parent = element.parentElement;
-    while (parent) {
-      console.log(parent);
-      if (parent.matches('div[data-testid="column"]')) {
-        // Add the center-content class to the parent element
-        console.log("Adding center-content class to parent");
-        parent.classList.add('center-content');
-        break;
-      }
-      parent = parent.parentElement;
+    if (element) {
+        let parent = element.parentElement;
+        while (parent) {
+          // Find column parent
+          if (parent.matches('div[data-testid="stVerticalBlock"]')) {
+            // Finding all children that contain the plotly chart
+            const children = parent.querySelectorAll('div[data-testid="element-container"]');
+
+            // Centering all children
+            children.forEach(child => {
+              child.classList.add('center-content');
+            });
+            break;
+          }
+          parent = parent.parentElement;
+        }
     }
-  }
 }
+
+setInterval(centerPlotly, 1000);
+
 </script>
 """,
     height=0,
