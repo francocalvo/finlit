@@ -8,7 +8,7 @@ import altair as alt
 import pandas as pd
 import streamlit as st
 
-from finlit.constants import GREEN_COLOR
+from finlit.constants import GREEN_COLOR, CYAN_COLOR
 
 logger = logging.getLogger()
 
@@ -32,7 +32,7 @@ def networth_summary(source_df: pd.DataFrame) -> alt.LayerChart:
     # Last month of the data
     today = pd.Timestamp.today()
     first_day = pd.Timestamp(today.year, today.month, 1)
-    line_color = "#8be9fd"
+    line_color = CYAN_COLOR
 
     # Less than today
     # Filter only the first day of the month
@@ -53,13 +53,13 @@ def networth_summary(source_df: pd.DataFrame) -> alt.LayerChart:
         .encode(
             x=alt.X("date:T", title="Date", axis=alt.Axis(format=("%b %Y"))),
             y=alt.Y(
-                "networth:Q",
+                "net_worth:Q",
                 title="Networth",
                 axis=alt.Axis(format="~s"),
                 scale=alt.Scale(
                     domain=[
                         source_df["liabilities"].max() * 1.5,
-                        source_df["networth"].max() * 1.5,
+                        source_df["net_worth"].max() * 1.5,
                     ]
                 ),
             ),
@@ -96,7 +96,7 @@ def networth_summary(source_df: pd.DataFrame) -> alt.LayerChart:
         .mark_point()
         .encode(
             x=alt.X("date:T", title="Date", axis=alt.Axis(format=("%b %Y"))),
-            y=alt.Y("networth:Q", title="Networth", axis=alt.Axis(format="~s")),
+            y=alt.Y("net_worth:Q", title="Networth", axis=alt.Axis(format="~s")),
             color=alt.value(line_color),  # Specific color for coast fire
             opacity=alt.condition(nearest, alt.value(1), alt.value(0.5)),  # type: ignore # noqa: PGH003
             tooltip=[
@@ -107,7 +107,7 @@ def networth_summary(source_df: pd.DataFrame) -> alt.LayerChart:
                     format=("%b %Y"),
                 ),
                 alt.Tooltip(
-                    "networth:Q",
+                    "net_worth:Q",
                     type="quantitative",
                     title="Net worth",
                     format=".2s",

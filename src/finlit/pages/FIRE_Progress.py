@@ -33,9 +33,6 @@ parser = create_parser()
 args = parser.parse_args()
 setup_logger(verbose=args.verbose)
 logger = getLogger()
-
-logger.info("Starting the application.")
-logger.debug("Verbose mode is activated.")
 ledger = Ledger(args.ledger)
 
 
@@ -114,16 +111,11 @@ expenses = calculate.average_expenses(all_expenses, trailing_months)
 
 networth_history = NetworthHistory(ledger)
 bal_df = networth_history.build()
-
-net_worth = bal_df.iloc[-1].networth
+net_worth = bal_df.iloc[-1].net_worth
 invested_money = calculate.invested_money(ledger)
 
 test_df = bal_df.copy()
 test_df = test_df[(test_df["date"].dt.day == 28)]
-
-logger.info(test_df)
-
-logger.info("Net worth: %s", bal_df.head())
 
 # Trajectory parameters
 params = TrajectoryParams(
@@ -138,8 +130,6 @@ params = TrajectoryParams(
     net_worth=net_worth,
     net_worth_df=bal_df,
 )
-
-logger.debug("Net worth: %s", net_worth)
 
 network_projection = NetworthTrajectory(ledger, params)
 
@@ -245,7 +235,7 @@ metrics_cols[3].metric("Optimal Contribution", format_number(optimal_contrib))
 networth_cols = st.columns([1, 3])
 
 with networth_cols[0]:
-    last_year_net_worth = bal_df.iloc[-365].networth
+    last_year_net_worth = bal_df.iloc[-365].net_worth
 
     net_worth_indicator = nw_indicator(
         net_worth, last_year_net_worth, "Net Worth", "YoY variation"
@@ -261,7 +251,6 @@ with networth_cols[0]:
 
     current_coast = net_worth / coast_number * 100
     ly_coast = last_year_net_worth / coast_number * 100
-    logger.info("Current Coast FIRE: %s", current_coast)
     coast_indicator_fig = coast_indicator(
         current_coast, ly_coast, "Coast FIRE", "Coast FIRE percentage"
     )

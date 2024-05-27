@@ -86,12 +86,7 @@ with st.sidebar:
         month_list = list(range(1, 13))[::-1]
 
     selected_month = st.selectbox("Select a month", month_list)
-
-    logger.info("Selected year: %s", selected_year)
-    logger.info("Selected month: %s", selected_month)
     periodo = f"{selected_year}-{selected_month:02d}-01"
-
-    logger.info("Selected period: %s", periodo)
 
 st.title("Monthly Overview")
 
@@ -149,8 +144,6 @@ next_month = datetime.strptime(periodo, "%Y-%m-%d").replace(tzinfo=TZ).date().re
 ) + timedelta(days=4)
 last_day = next_month - timedelta(days=next_month.day)
 days_left = (last_day - datetime.now(tz=TZ).date()).days + 1
-logger.info("Days left: %s", days_left)
-
 
 daily_budget = 0 if days_left <= 0 else left_over / days_left
 daily_budget_str = format_number(daily_budget, prefix="$")
