@@ -120,10 +120,6 @@ class NetworthTrajectory:
             else 0
         )
 
-        logger.info(
-            "Inside _get_date_array. Years: %s. Offset: %s", self.params.years, offset
-        )  # noqa: E501
-
         return list(
             rrule.rrule(
                 rrule.MONTHLY,
@@ -164,7 +160,7 @@ class NetworthTrajectory:
             amount = self._run_query(query)
             series.append((period, amount))
 
-        return pd.DataFrame(series, columns=["date", "networth"])
+        return pd.DataFrame(series, columns=["date", "net_worth"])
 
     def _get_projection(
         self,
@@ -230,7 +226,7 @@ class NetworthTrajectory:
         logger.debug("Ideal contribution: %s", optimal_contrib)
 
         networth_series = pd.DataFrame(
-            self.params.net_worth_df, copy=True, columns=["date", "networth"]
+            self.params.net_worth_df, copy=True, columns=["date", "net_worth"]
         )
 
         # Get the projections
@@ -246,21 +242,21 @@ class NetworthTrajectory:
         df_projection_probable = pd.concat(
             [
                 self._get_projection(net_worth, probable_contrib, "probable_value"),
-                networth_series.rename(columns={"networth": "probable_value"}),
+                networth_series.rename(columns={"net_worth": "probable_value"}),
             ]
         )
 
         df_projection_optimal = pd.concat(
             [
                 self._get_projection(net_worth, optimal_contrib, "optimal_value"),
-                networth_series.rename(columns={"networth": "optimal_value"}),
+                networth_series.rename(columns={"net_worth": "optimal_value"}),
             ]
         )
 
         df_possible = pd.concat(
             [
                 self._get_projection(net_worth, possible_contrib, "possible_value"),
-                networth_series.rename(columns={"networth": "possible_value"}),
+                networth_series.rename(columns={"net_worth": "possible_value"}),
             ]
         )
 

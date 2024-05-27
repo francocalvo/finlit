@@ -11,8 +11,9 @@ It returns the market value of the assets in the ledger file as a timeseries.
 
 import collections
 import datetime
+from collections.abc import Callable
 from logging import getLogger
-from typing import Set
+from typing import Set, Tuple
 
 import pandas as pd
 from beancount.core import account_types, convert, data, inventory, prices
@@ -25,7 +26,10 @@ from finlit.data.ledger import Ledger
 
 logger = getLogger()
 
+INVESTMENT_PREFIX = "Assets:Inversiones"
 
+
+# TODO: Refactor this class to add the balance, liabilities and assets as attributes of the class.
 class NetworthHistory:
     """
     Table object for the income table.
@@ -51,9 +55,32 @@ class NetworthHistory:
             it's converted to a yearly amount and then considered as yearly return.
 
         """
-        # logger.debug("Initializing the NetworthTrajectory object.")
-
         self.ledger: Ledger = ledger
+
+    def map_to_usd(self, inventory, currency, price_map, date) -> float:
+        """
+        Map the inventory to currency.
+
+        Args:
+        ----
+          inventory: The inventory to map.
+          currency: The currency to map to.
+          price_map: The price map to use for conversion.
+          date: The date at which to convert.
+
+        """
+        if inventory.is_empty():
+            return 0.0
+        converted = inventory.reduce(
+            convert.convert_position,
+            currency,
+            price_map,
+            date,
+        )
+
+        splitted = converted.split()
+        single_currency = splitted.pop(currency)
+        return single_currency.get_only_position().units.number
 
     def project_missing_currencies(
         self,
@@ -98,8 +125,6 @@ class NetworthHistory:
           An updated price map containing projections to make this possible.
 
         """
-        # logger.debug("MISSING %s", currencies)
-
         # Get a dictionary of which currency is priced in which other.
         priced_currencies = collections.defaultdict(set)
         for base, quote in price_map.keys():
@@ -109,14 +134,11 @@ class NetworthHistory:
         # This works partly because price maps are symmetrical (e.g., "USD" will
         # have all the currencies that are converted to it).
         available_currencies = priced_currencies[target_currency]
-        # logger.debug("  AVAIL %s", sorted(available_currencies))
-
         # For all those remaining commodities, ensure that rates exist to
         # convert by value to the target currency, by projecting through
         # an available price conversion.
         projections = collections.defaultdict(list)
         for pos_currency in currencies:
-            # logger.debug("  POS %s", pos_currency)
             rate_date, rate = prices.get_price(
                 price_map, (pos_currency, target_currency), date
             )
@@ -124,11 +146,8 @@ class NetworthHistory:
                 # Find the available prices for this position.
                 quote_currencies = priced_currencies[pos_currency]
                 inter_currencies = available_currencies & quote_currencies
-                # logger.debug("    QUOTE %s %s", quote_currencies, inter_currencies)
                 for inter_currency in inter_currencies:
                     projections[inter_currency].append(pos_currency)
-
-        # logger.debug("  PROJ %s", projections)
 
         # Apply the projections.
         proj_price_map = price_map
@@ -142,7 +161,71 @@ class NetworthHistory:
 
         return proj_price_map
 
-    def build_timeseries(self):
+    def add_to_inventories(
+        self,
+        entries,
+        acctypes,
+        balance,
+        liabilities,
+        assets,
+        *,
+        investments=False,
+        filter_func: Callable | None = None,
+    ) -> Tuple[inventory.Inventory, inventory.Inventory, inventory.Inventory]:
+        """
+        Create inventories for the balance sheet.
+
+        Args:
+        ----
+          entries: The entries to process.
+          acctypes: The account types map.
+          balance: The balance inventory.
+          liabilities: The liabilities inventory.
+          assets: The assets inventory.
+          investments: Whether to include investment accounts.
+          filter_func: A filter function to apply to the postings.
+
+        Returns:
+        -------
+          A tuple of the balance, liabilities and assets inventories.
+
+        """
+
+        filter_function = filter_func if filter_func is not None else lambda _: True
+
+        for entry in data.filter_txns(entries):
+            for posting in entry.postings:
+                acctype = account_types.get_account_type(posting.account)
+
+                # Check:
+                # - if the account is an asset or liability
+                # - if the account is an investment account when investments is True
+                # - if the filter function returns True
+                is_asset_or_liability = acctype in (
+                    acctypes.assets,
+                    acctypes.liabilities,
+                )
+
+                investments_filter = (
+                    posting.account.startswith(INVESTMENT_PREFIX)
+                    if investments
+                    else True
+                )
+
+                is_valid = filter_function(posting)
+
+                if is_asset_or_liability and investments_filter and is_valid:
+                    balance.add_position(posting)  # type: ignore[]
+                    if acctype == acctypes.liabilities:
+                        liabilities.add_position(posting)  # type: ignore[]
+                    if acctype == acctypes.assets:
+                        assets.add_position(posting)  # type: ignore[]
+
+        return balance, liabilities, assets
+
+    def build_timeseries(
+        self, *, investments: bool = False, filter_func: Callable | None = None
+    ) -> pd.DataFrame:
         entries = self.ledger.entries
         _errors = self.ledger.errors
         options_map = self.ledger.options
@@ -151,11 +234,7 @@ class NetworthHistory:
         operating_currencies = options_map["operating_currency"]
 
         net_worths_dict = collections.defaultdict(list)
-        liabilities_dict = collections.defaultdict(list)
-        assets_dict = collections.defaultdict(list)
-
         index = 0
-
         for entry in entries:
             if isinstance(entry, data.Transaction):
                 dtstart = entry.date
@@ -183,19 +262,17 @@ class NetworthHistory:
 
             # Simple global aggregation of all intervening postings to a single
             # inventory.
-            for entry in data.filter_txns(new_entries):
-                for posting in entry.postings:
-                    acctype = account_types.get_account_type(posting.account)
-                    if acctype in (acctypes.assets, acctypes.liabilities):
-                        balance.add_position(posting)  # type: ignore[]
-                        if acctype == acctypes.liabilities:
-                            liabilities.add_position(posting)  # type: ignore[]
-                        if acctype == acctypes.assets:
-                            assets.add_position(posting)  # type: ignore[]
+            balance, liabilities, assets = self.add_to_inventories(
+                new_entries,
+                acctypes,
+                balance,
+                liabilities,
+                assets,
+                investments=investments,
+                filter_func=filter_func,
+            )
 
             for _, currency in enumerate(operating_currencies):
-                # logger.debug("------------------------- %s", currency)
-
                 # Compute balance at market price values. This will convert all
                 # commodities held at cost to their cost value, and others to the
                 # priced value, if relevant prices exist. Only commodities which
@@ -211,48 +288,18 @@ class NetworthHistory:
                     currency,
                 )
 
-                converted_balance = balance.reduce(
-                    convert.convert_position,
-                    currency,  # type: ignore[]
-                    proj_price_map,  # type: ignore[]
-                    date,  # type: ignore[]
+                balance_value = self.map_to_usd(balance, currency, proj_price_map, date)
+                balance_liabilities = self.map_to_usd(
+                    liabilities, currency, proj_price_map, date
                 )
-                converted_liabilities = liabilities.reduce(
-                    convert.convert_position,
-                    currency,  # type: ignore[]
-                    proj_price_map,  # type: ignore[]
-                    date,  # type: ignore[]
-                )
-                converted_assets = assets.reduce(
-                    convert.convert_position,
-                    currency,  # type: ignore[]
-                    proj_price_map,  # type: ignore[]
-                    date,  # type: ignore[]
-                )
+                balance_assets = self.map_to_usd(assets, currency, proj_price_map, date)
 
-                # Collect result.
-                per_currency_dict = converted_balance.split()
-                per_liabilities = converted_liabilities.split()
-                per_assets = converted_assets.split()
-
-                pos = per_currency_dict.pop(currency).get_only_position()
-                pos_liabilities = per_liabilities.pop(currency).get_only_position()
-                pos_assets = per_assets.pop(currency).get_only_position()
-
-                # If some conversions failed, log an error.
-                if per_currency_dict:
-                    logger.error(
-                        "Could not convert all positions at date %s, to %s: %s",
-                        date,
-                        currency,
-                        per_currency_dict,
-                    )
                 net_worths_dict[currency].append(
                     (
                         date,
-                        pos.units.number,  # type: ignore[]
-                        pos_liabilities.units.number,  # type: ignore[]
-                        pos_assets.units.number,  # type: ignore[]
+                        balance_value,
+                        balance_liabilities,
+                        balance_assets,
                     )
                 )  # type: ignore[]
 
@@ -270,7 +317,7 @@ class NetworthHistory:
         )
 
         pd_balance["date"] = pd.to_datetime(pd_balance["date"])
-        pd_balance["networth"] = pd_balance["net_worth"].astype(float)
+        pd_balance["net_worth"] = pd_balance["net_worth"].astype(float)
         pd_balance["liabilities"] = pd_balance["liabilities"].astype(float)
         pd_balance["assets"] = pd_balance["assets"].astype(float)
 
@@ -283,11 +330,18 @@ class NetworthHistory:
     #         ),
     #     },
     # )
-    def build(self) -> pd.DataFrame:
+    def build(
+        self, *, investments: bool = False, filter_func: Callable | None = None
+    ) -> pd.DataFrame:
         """
         Build the dataframe for the network trajectories.
+
+        Args:
+        ----
+            investments: bool
+
         """
-        return self.build_timeseries()
+        return self.build_timeseries(investments=investments, filter_func=filter_func)
 
 
 def networth_hash(ledger: Ledger) -> int:
@@ -339,7 +393,6 @@ def project_missing_currencies(
       An updated price map containing projections to make this possible.
 
     """
-    # logger.debug("MISSING %s", currencies)
 
     # Get a dictionary of which currency is priced in which other.
     priced_currencies = collections.defaultdict(set)
@@ -350,14 +403,12 @@ def project_missing_currencies(
     # This works partly because price maps are symmetrical (e.g., "USD" will
     # have all the currencies that are converted to it).
     available_currencies = priced_currencies[target_currency]
-    # logger.debug("  AVAIL %s", sorted(available_currencies))
 
     # For all those remaining commodities, ensure that rates exist to
     # convert by value to the target currency, by projecting through
     # an available price conversion.
     projections = collections.defaultdict(list)
     for pos_currency in currencies:
-        # logger.debug("  POS %s", pos_currency)
         rate_date, rate = prices.get_price(
             price_map, (pos_currency, target_currency), date
         )
@@ -365,11 +416,8 @@ def project_missing_currencies(
             # Find the available prices for this position.
             quote_currencies = priced_currencies[pos_currency]
             inter_currencies = available_currencies & quote_currencies
-            # logger.debug("    QUOTE %s %s", quote_currencies, inter_currencies)
             for inter_currency in inter_currencies:
                 projections[inter_currency].append(pos_currency)
-
-    # logger.debug("  PROJ %s", projections)
 
     # Apply the projections.
     proj_price_map = price_map
