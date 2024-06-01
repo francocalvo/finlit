@@ -57,6 +57,11 @@ st.markdown(
       align-items: center;
     }
 
+    .stPlotlyChart {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
   </style>
     """,
     unsafe_allow_html=True,
@@ -214,6 +219,29 @@ def nw_indicator(
     ).update_layout(width=120, height=110, margin={"t": 50, "b": 0, "l": 10, "r": 10})
 
 
+def simple_indicator(
+    value: float,
+    title: str,
+    subtitle: str | None = None,
+) -> go.Figure:
+    title_text = f"""<span style='margin-bottom:2cm;font-size:1.2rem;font-weight:bold;'>{title}</span>"""
+    return go.Figure(
+        go.Indicator(
+            mode="number+delta",
+            value=value,
+            number={
+                "prefix": "$",
+                "font": {
+                    "size": 40,
+                },
+            },
+            title={
+                "text": title_text,
+            },
+        )
+    ).update_layout(width=180, height=110, margin={"t": 50, "b": 0, "l": 50, "r": 50})
+
+
 #######################
 
 # Layout
@@ -264,6 +292,9 @@ with networth_cols[0]:
         "FIRE percentage",
     )
 
+    coast_number_ind = simple_indicator(coast_number, "Coast FIRE number")
+    fire_number_ind = simple_indicator(params.dream_total, "FIRE number")
+
     indics_cols = st.columns(2)
 
     with indics_cols[0]:
@@ -274,6 +305,8 @@ with networth_cols[0]:
         st.plotly_chart(invested_indicator)
         st.plotly_chart(fire_indicator_fig)
 
+    st.plotly_chart(coast_number_ind)
+    st.plotly_chart(fire_number_ind)
 
 with networth_cols[1]:
     networth_projection_chart = networth_projection(
