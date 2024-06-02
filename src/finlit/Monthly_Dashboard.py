@@ -100,10 +100,10 @@ st.title("Monthly Overview")
 # Dataframes
 
 all_expenses_complete: pd.DataFrame = AllExpensesDataset(
-    ledger, engine, "all_expenses"
+    ledger, "all_expenses"
 ).build()
 all_income_complete: pd.DataFrame = AllIncomeDataset(
-    ledger, engine, "all_income"
+    ledger, "all_income"
 ).build()
 
 expenses_period = all_expenses_period(all_expenses_complete, periodo)

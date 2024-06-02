@@ -10,7 +10,7 @@ import streamlit as st
 from streamlit.components.v1 import html
 
 from finlit.data import Ledger
-from finlit.data.transformations.networth_history import NetworthHistory
+from finlit.data.datasets import NetworthHistoryDataset
 from finlit.data.transformations.portfolio_assets import PorfolioAssets
 from finlit.utils import create_parser, setup_logger, style_css
 from finlit.viz.portfolio.holdings_piechart import holdings_chart
@@ -89,7 +89,7 @@ global_porfolio = p_df.loc[p_df["portfolio"] == "Global"]
 argy_porfolio = p_df.loc[p_df["portfolio"] == "Argentina"]
 
 # Investment history
-investment_history = NetworthHistory(ledger)
+investment_history = NetworthHistoryDataset(ledger)
 
 argy_func = creater_filter_func("ARG")
 global_func = creater_filter_func("US")
@@ -147,26 +147,28 @@ html(
     """
 <script>
 function centerPlotly() {
-    // Element streamlit plotly
-    element = parent.document.querySelector('.stPlotlyChart')
+  // Element streamlit plotly
+  element = parent.document.querySelector(".stPlotlyChart");
 
-    if (element) {
-        let parent = element.parentElement;
-        while (parent) {
-          // Find column parent
-          if (parent.matches('div[data-testid="stVerticalBlock"]')) {
-            // Finding all children that contain the plotly chart
-            const children = parent.querySelectorAll('div[data-testid="element-container"]');
+  if (element) {
+    let parent = element.parentElement;
+    while (parent) {
+      // Find column parent
+      if (parent.matches('div[data-testid="stVerticalBlock"]')) {
+        // Finding all children that contain the plotly chart
+        const children = parent.querySelectorAll(
+          'div[data-testid="element-container"]',
+        );
 
-            // Centering all children
-            children.forEach(child => {
-              child.classList.add('center-content');
-            });
-            break;
-          }
-          parent = parent.parentElement;
-        }
+        // Centering all children
+        children.forEach((child) => {
+          child.classList.add("center-content");
+        });
+        break;
+      }
+      parent = parent.parentElement;
     }
+  }
 }
 
 setInterval(centerPlotly, 1000);
@@ -176,3 +178,4 @@ setInterval(centerPlotly, 1000);
     height=0,
     width=0,
 )
+

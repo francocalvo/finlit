@@ -7,7 +7,6 @@ from typing import Any
 
 import pandas as pd
 import streamlit as st
-from sqlalchemy.engine import Engine
 
 from finlit.data.datasets.dataset import Dataset
 from finlit.data.ledger import Ledger, ledger_hash
@@ -20,12 +19,11 @@ class AllIncomeDataset(Dataset):
     Dataset class for the income table.
     """
 
-    def __init__(self, ledger: Ledger, engine: Engine, table_name: str) -> None:
+    def __init__(self, ledger: Ledger, table_name: str) -> None:
         """
         Initialize the table  object for the income table.
         """
-        super().__init__(ledger, engine, table_name)
-        self.engine = engine
+        super().__init__(ledger, table_name)
         self.table_name = table_name
         self.ledger = ledger
 

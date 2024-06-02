@@ -22,6 +22,7 @@ from beancount.parser import options
 from dateutil import rrule
 
 from finlit.constants import INITAL_MONTH, INITAL_YEAR
+from finlit.data.datasets import Dataset
 from finlit.data.ledger import Ledger
 
 logger = getLogger()
@@ -29,8 +30,9 @@ logger = getLogger()
 INVESTMENT_PREFIX = "Assets:Inversiones"
 
 
-# TODO: Refactor this class to add the balance, liabilities and assets as attributes of the class.
-class NetworthHistory:
+# TODO: Refactor this class to add the balance, liabilities and assets as attributes
+# of the class.
+class NetworthHistoryDataset(Dataset):
     """
     Table object for the income table.
     """
@@ -40,7 +42,7 @@ class NetworthHistory:
         ledger: Ledger,
     ) -> None:
         """
-        Initialize the table  object for the network trajectories.
+        Initialize the table  object for the networth trajectories.
 
         Keywords arguments:
         - ledger: Ledger object
@@ -226,6 +228,9 @@ class NetworthHistory:
     def build_timeseries(
         self, *, investments: bool = False, filter_func: Callable | None = None
     ) -> pd.DataFrame:
+        """
+        Build the dataframe for the networth trajectories.
+        """
         entries = self.ledger.entries
         _errors = self.ledger.errors
         options_map = self.ledger.options
@@ -331,14 +336,19 @@ class NetworthHistory:
     #     },
     # )
     def build(
-        self, *, investments: bool = False, filter_func: Callable | None = None
+        self,
+        *,
+        investments: bool = False,
+        filter_func: Callable | None = None,
+        **kwargs,
     ) -> pd.DataFrame:
         """
-        Build the dataframe for the network trajectories.
+        Build the dataframe for the networth trajectories.
 
         Args:
         ----
-            investments: bool
+            investments (bool): Whether to include investment accounts.
+            filter_func (Callable): A filter function to apply to the postings.
 
         """
         return self.build_timeseries(investments=investments, filter_func=filter_func)

@@ -15,8 +15,9 @@ from altair import pd
 from beancount.core import convert, data, inventory, prices
 from beancount.core.account import root
 
+# from finlit.data.transformations.networth_history import project_missing_currencies
+from finlit.data.datasets.networth_history import project_missing_currencies
 from finlit.data.ledger import Ledger
-from finlit.data.transformations.networth_history import project_missing_currencies
 
 INVESTMENT_PREFIX = "Assets:Inversiones"
 MAIN_CURR = "USD"

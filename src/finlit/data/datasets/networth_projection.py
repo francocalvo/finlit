@@ -1,5 +1,5 @@
 """
-Module that contains the IncomeTable class, which is a subclass of the Table class.
+Module that contains the NetworthTrajectoryDataset class.
 """
 
 from dataclasses import dataclass
@@ -15,6 +15,7 @@ from dateutil import rrule
 from dateutil.relativedelta import relativedelta
 
 from finlit.constants import INITAL_MONTH, INITAL_YEAR, TZ
+from finlit.data.datasets import Dataset
 from finlit.data.ledger import Ledger
 from finlit.data.transformations import calculate
 
@@ -68,7 +69,7 @@ class TrajectoryParams:
         )
 
 
-class NetworthTrajectory:
+class NetworthTrajectoryDataset(Dataset):
     """
     Table object for the income table.
     """
@@ -191,12 +192,16 @@ class NetworthTrajectory:
 
     @st.cache_data(
         hash_funcs={
-            "finlit.data.transformations.networth_projections.NetworthTrajectory": lambda x: (  # noqa: E501
+            "finlit.data.datasets.networth_projection.NetworthTrajectoryDataset": lambda x: (  # noqa: E501
                 networth_hash(x.ledger, x.params)
             ),
         },
     )
-    def build(self) -> pd.DataFrame:
+    def build(
+        self,
+        *args,  # noqa: ANN002, ARG002
+        **kwargs,  # noqa: ANN003, ARG002
+    ) -> pd.DataFrame:
         """
         Build the dataframe for the network trajectories.
         """

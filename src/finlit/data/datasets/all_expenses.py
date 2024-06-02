@@ -6,9 +6,9 @@ from logging import getLogger
 from typing import Any
 
 import pandas as pd
+
 from finlit.data.datasets.dataset import Dataset
 from finlit.data.ledger import Ledger
-from sqlalchemy.engine import Engine
 
 logger = getLogger()
 
@@ -18,11 +18,11 @@ class AllExpensesDataset(Dataset):
     Table object for the expenses table.
     """
 
-    def __init__(self, ledger: Ledger, engine: Engine, table_name: str) -> None:
+    def __init__(self, ledger: Ledger, table_name: str) -> None:
         """
         Initialize the table  object for the expenses table.
         """
-        super().__init__(ledger, engine, table_name)
+        super().__init__(ledger, table_name)
 
     def build(self, **_: dict[str, Any]) -> pd.DataFrame:
         """

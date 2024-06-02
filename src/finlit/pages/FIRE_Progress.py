@@ -6,19 +6,27 @@ from logging import getLogger
 
 import altair as alt
 import pandas as pd
-import plotly.graph_objects as go
 import pytz
 import streamlit as st
-from sqlalchemy import create_engine
 from streamlit.components.v1 import html
 
 from finlit.data import Ledger
-from finlit.data.datasets import AllExpensesDataset, AllIncomeDataset
-from finlit.data.transformations import TrajectoryParams, calculate
-from finlit.data.transformations.networth_history import NetworthHistory
-from finlit.data.transformations.networth_projections import NetworthTrajectory
+from finlit.data.datasets import (
+    AllExpensesDataset,
+    AllIncomeDataset,
+    NetworthHistoryDataset,
+    NetworthTrajectoryDataset,
+    TrajectoryParams,
+)
+from finlit.data.transformations import calculate
 from finlit.utils import create_parser, format_number, setup_logger, style_css
-from finlit.viz.fire_progress import networth_projection, networth_summary
+from finlit.viz.fire_progress import (
+    coast_indicator,
+    networth_projection,
+    networth_summary,
+    nw_indicator,
+    simple_indicator,
+)
 
 tz = pytz.timezone("America/Argentina/Cordoba")
 
@@ -104,23 +112,22 @@ cols = st.columns([1, 2], gap="large")
 
 st.subheader("Summary")
 
-dummy = create_engine("postgresql://postgres:postgres@localhost:5432/finances")
-
 # Income and expenses
-all_expenses: pd.DataFrame = AllExpensesDataset(ledger, dummy, "all_expenses").build()
-all_income: pd.DataFrame = AllIncomeDataset(ledger, dummy, "all_income").build()
+all_expenses: pd.DataFrame = AllExpensesDataset(ledger, "all_expenses").build()
+all_income: pd.DataFrame = AllIncomeDataset(ledger, "all_income").build()
 
 income = calculate.average_income(all_income, trailing_months)
 expenses = calculate.average_expenses(all_expenses, trailing_months)
 
 
-networth_history = NetworthHistory(ledger)
+networth_history = NetworthHistoryDataset(ledger)
 bal_df = networth_history.build()
 net_worth = bal_df.iloc[-1].net_worth
 invested_money = calculate.invested_money(ledger)
 
 test_df = bal_df.copy()
-test_df = test_df[(test_df["date"].dt.day == 28)]
+# Filter only the last day of the month. I'm using the 28th as a proxy.
+test_df = test_df[(test_df["date"].dt.day == 28)]  # noqa: PLR2004
 
 # Trajectory parameters
 params = TrajectoryParams(
@@ -136,7 +143,7 @@ params = TrajectoryParams(
     net_worth_df=bal_df,
 )
 
-network_projection = NetworthTrajectory(ledger, params)
+network_projection = NetworthTrajectoryDataset(ledger, params)
 
 # Coasting fire
 network_projection_df = network_projection.build()
@@ -149,97 +156,6 @@ conservative_contrib = probable_contrib * 0.75
 optimal_contrib = calculate.optimal_contribution(
     net_worth, params.return_rate, params.years, params.dream_total
 )
-
-
-def coast_indicator(
-    value: float, reference: float, title: str, subtitle: str | None = None
-) -> go.Figure:
-    """
-    Create a indicator plot for Coast FIRE and FIRE.
-    """
-    title_text = (
-        title
-        if not subtitle
-        else f"""<span style='margin-bottom:2cm;font-size:1rem;font-weight:bold;'>{title}</span><br><br><span style='margin-top:2cm;font-size:0.8rem;color:gray'>{subtitle}</span>"""
-    )
-
-    return go.Figure(
-        go.Indicator(
-            mode="number+delta",
-            value=round(value, 2),
-            number={
-                "suffix": "%",
-                "font": {
-                    "size": 35,
-                },
-            },
-            delta={
-                "reference": reference,
-                "position": "bottom",
-                "valueformat": ".2",
-                "suffix": "%",
-            },
-            domain={"x": [0, 1], "y": [0, 1]},
-            title={"text": title_text},
-        )
-    ).update_layout(width=120, height=110, margin={"t": 50, "b": 0, "l": 10, "r": 10})
-
-
-def nw_indicator(
-    value: float,
-    reference: float,
-    title: str,
-    subtitle: str | None = None,
-) -> go.Figure:
-    title_text = (
-        title
-        if not subtitle
-        else f"""<span style='margin-bottom:2cm;font-size:1rem;font-weight:bold;'>{title}</span><br><br><span style='margin-top:2cm;font-size:0.8rem;color:gray'>{subtitle}</span>"""
-    )
-    return go.Figure(
-        go.Indicator(
-            mode="number+delta",
-            value=value,
-            number={
-                "prefix": "$",
-                "font": {
-                    "size": 35,
-                },
-            },
-            delta={
-                "reference": reference,
-                "position": "bottom",
-                "valueformat": ".2%",
-                "relative": True,
-            },
-            title={
-                "text": title_text,
-            },
-        )
-    ).update_layout(width=120, height=110, margin={"t": 50, "b": 0, "l": 10, "r": 10})
-
-
-def simple_indicator(
-    value: float,
-    title: str,
-    subtitle: str | None = None,
-) -> go.Figure:
-    title_text = f"""<span style='margin-bottom:2cm;font-size:1.2rem;font-weight:bold;'>{title}</span>"""
-    return go.Figure(
-        go.Indicator(
-            mode="number+delta",
-            value=value,
-            number={
-                "prefix": "$",
-                "font": {
-                    "size": 40,
-                },
-            },
-            title={
-                "text": title_text,
-            },
-        )
-    ).update_layout(width=180, height=110, margin={"t": 50, "b": 0, "l": 50, "r": 50})
 
 
 #######################
@@ -319,30 +235,38 @@ networth_summary_chart = networth_summary(bal_df)
 st.altair_chart(networth_summary_chart, use_container_width=True)  # type: ignore [reportArgumentType]
 
 
+#######################
+
+# Finish CSS
+
+#######################
+
 html(
     """
 <script>
 function centerPlotly() {
-    // Element streamlit plotly
-    element = parent.document.querySelector('.stPlotlyChart')
+  // Element streamlit plotly
+  element = parent.document.querySelector(".stPlotlyChart");
 
-    if (element) {
-        let parent = element.parentElement;
-        while (parent) {
-          // Find column parent
-          if (parent.matches('div[data-testid="stVerticalBlock"]')) {
-            // Finding all children that contain the plotly chart
-            const children = parent.querySelectorAll('div[data-testid="element-container"]');
+  if (element) {
+    let parent = element.parentElement;
+    while (parent) {
+      // Find column parent
+      if (parent.matches('div[data-testid="stVerticalBlock"]')) {
+        // Finding all children that contain the plotly chart
+        const children = parent.querySelectorAll(
+          'div[data-testid="element-container"]',
+        );
 
-            // Centering all children
-            children.forEach(child => {
-              child.classList.add('center-content');
-            });
-            break;
-          }
-          parent = parent.parentElement;
-        }
+        // Centering all children
+        children.forEach((child) => {
+          child.classList.add("center-content");
+        });
+        break;
+      }
+      parent = parent.parentElement;
     }
+  }
 }
 
 setInterval(centerPlotly, 1000);

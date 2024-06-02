@@ -6,7 +6,6 @@ from logging import getLogger
 
 import duckdb
 import pandas as pd
-from sqlalchemy.engine import Engine
 
 from finlit.data.datasets.dataset import Dataset
 from finlit.data.ledger import Ledger
@@ -19,12 +18,11 @@ class BalanceDataset(Dataset):
     Dataset class for the balance sheet table.
     """
 
-    def __init__(self, ledger: Ledger, engine: Engine, table_name: str) -> None:
+    def __init__(self, ledger: Ledger, table_name: str) -> None:
         """
         Initialize the table  object for the income table.
         """
-        super().__init__(ledger, engine, table_name)
-        self.engine = engine
+        super().__init__(ledger, table_name)
         self.table_name = table_name
         self.ledger = ledger
 
@@ -41,7 +39,7 @@ class BalanceDataset(Dataset):
         """
 
         query = f"""
-        SELECT 
+        SELECT
             YEAR AS Year,
             MONTH AS Month,
             NUMBER(ONLY('USD', SUM(CONVERT(VALUE(POSITION, DATE), 'USD', DATE)))) AS AMOUNT
@@ -57,8 +55,8 @@ class BalanceDataset(Dataset):
         """
         Build the table in the database.
         """
-        assets_df = self._base_data("Assets")
-        liabilities_df = self._base_data("Liabilities")
+        assets_df = self._base_data("Assets")  # noqa: F841
+        liabilities_df = self._base_data("Liabilities")  # noqa: F841
 
         balance_df: pd.DataFrame = duckdb.query(
             """
