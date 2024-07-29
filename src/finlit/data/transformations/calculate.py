@@ -91,9 +91,6 @@ def net_expense_ratio(
         .to_numpy()[0][0]
     )
 
-    # -- AND narration != 'Comprar lavasecarropas Samsung Eco Bubble IA 9.5kg'
-
-
 def sum_field(transactions: pd.DataFrame, field: str) -> float:  # noqa: ARG001
     """
     Calculate the total expenses in a given period.
