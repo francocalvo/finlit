@@ -24,6 +24,16 @@ class AllExpensesDataset(Dataset):
         """
         super().__init__(ledger, table_name)
 
+    def _unpack_frozenset(self, x: frozenset) -> list[str]:
+        """
+        Unpack the frozenset.
+        """
+        if not x:
+            return [""]
+        # (a,) = x
+        # return a
+        return list(x)
+
     def build(self, **_: dict[str, Any]) -> pd.DataFrame:
         """
         Build the table in the database.
@@ -37,11 +47,17 @@ class AllExpensesDataset(Dataset):
             payee AS payee,
             narration AS narration,
             NUMBER(CONVERT(POSITION, 'ARS', DATE)) AS amount_ars,
-            NUMBER(CONVERT(POSITION, 'USD', DATE)) AS amount_usd
+            NUMBER(CONVERT(POSITION, 'USD', DATE)) AS amount_usd,
+            FIRST(tags) AS tags
         WHERE account ~ '^Expenses'
         ORDER BY date DESC
         """
 
         _types, res = self.ledger.run_query(query)
 
-        return pd.DataFrame(res)
+        all_expenses = pd.DataFrame(res)
+        all_expenses["tags"] = all_expenses["tags"].apply(self._unpack_frozenset)
+
+        # logger.info(all_expenses["tag"].unique())
+
+        return all_expenses

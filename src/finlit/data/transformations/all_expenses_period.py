@@ -11,6 +11,7 @@ import streamlit as st
 def all_expenses_period(
     all_expenses_complete: pd.DataFrame,  # noqa: ARG001
     periodo: str,
+    net_expenses: bool,
 ) -> pd.DataFrame:
     """
     Create a DataFrame with all expenses in a given period.
@@ -23,11 +24,13 @@ def all_expenses_period(
         - Narration: Description of the expense.
         - Amount_ars: Amount of the expense in ARS.
         - Amount_usd: Amount of the expense in USD.
+        - Tags: tags added to the transactions
 
     Args:
     ----
         all_expenses_complete (pd.DataFrame): DataFrame with all expenses.
         periodo (str): Period to filter the expenses.
+        net_expenses (bool): If True, it will return the net expenses.
 
     """
     return duckdb.query(
@@ -37,8 +40,7 @@ def all_expenses_period(
     WHERE
       EXTRACT(YEAR FROM Date) = EXTRACT(YEAR FROM '{periodo}'::DATE)
       AND EXTRACT(MONTH FROM Date) = EXTRACT(MONTH FROM '{periodo}'::DATE)
+      {"AND NOT array_contains(tags, 'exclude')" if net_expenses else ""}
     ORDER BY date ASC
         """  # noqa: S608
     ).to_df()
-
-

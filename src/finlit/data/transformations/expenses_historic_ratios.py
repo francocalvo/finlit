@@ -2,9 +2,14 @@
 Module with the function expenses_historic_ratios.
 """
 
+import logging
+
 import duckdb
 import pandas as pd
 import streamlit as st
+
+logger = logging.getLogger()
+logger.setLevel(logging.INFO)
 
 
 @st.cache_data
@@ -29,6 +34,13 @@ def expenses_historic_ratios(
         all_income (pd.DataFrame): DataFrame with all income.
 
     """
+    logger.debug(
+        "Excluded rows from all_expenses: \n%s",
+        duckdb.query(
+            "SELECT * FROM all_expenses WHERE array_contains(tags, 'exclude')"
+        ),
+    )
+
     expenses_historic = duckdb.query(
         """
     WITH IncomeSum AS (
@@ -74,7 +86,7 @@ def expenses_historic_ratios(
         FROM
             all_expenses
         WHERE
-            Subcategory != 'Comisiones'
+            NOT array_contains(tags, 'exclude')
         GROUP BY
             Y,
             M

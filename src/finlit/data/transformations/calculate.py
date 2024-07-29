@@ -17,7 +17,7 @@ logger.setLevel(logging.INFO)
 
 
 def net_expense_ratio(
-    all_expenses: pd.DataFrame,  # noqa: ARG001
+    all_expenses: pd.DataFrame,
     all_income: pd.DataFrame,  # noqa: ARG001
 ) -> float:
     """
@@ -29,6 +29,7 @@ def net_expense_ratio(
         - Date: Date of the expense.
         - Subcategory: Subcategory of the expense.
         - Amount_usd: Amount of the expense in USD.
+        - Tags: Tags of the expense.
 
     The all_income DataFrame should contain the following columns:
         - Date: Date of the income.
@@ -42,6 +43,13 @@ def net_expense_ratio(
         all_income (pd.DataFrame): DataFrame with all income.
 
     """
+    logger.debug(
+        "Excluded rows from all_expenses: \n%s",
+        duckdb.query(
+            "SELECT * FROM all_expenses WHERE array_contains(tags, 'exclude')"
+        ),
+    )
+
     return float(
         duckdb.query(
             """
@@ -66,7 +74,7 @@ def net_expense_ratio(
         FROM
             all_expenses
         WHERE
-            Subcategory != 'Comisiones'
+            NOT array_contains(tags, 'exclude')
         GROUP BY
             Y,
             M
@@ -96,6 +104,24 @@ def sum_field(transactions: pd.DataFrame, field: str) -> float:  # noqa: ARG001
             f"""
     SELECT SUM({field})
     FROM transactions"""  # noqa: S608
+        )
+        .to_df()
+        .to_numpy()[0][0]
+    )
+
+
+def sum_field_net(transactions: pd.DataFrame, field: str) -> float:  # noqa: ARG001
+    """
+    Calculate the total expenses in a given period.
+    """
+
+    return float(
+        duckdb.query(
+            f"""
+    SELECT SUM({field})
+    FROM transactions
+    WHERE NOT array_contains(tags, 'exclude')
+    """  # noqa: S608
         )
         .to_df()
         .to_numpy()[0][0]

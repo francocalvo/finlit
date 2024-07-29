@@ -7,6 +7,7 @@ from datetime import datetime
 import duckdb
 import pandas as pd
 import streamlit as st
+
 from finlit.constants import INITAL_MONTH, INITAL_YEAR, TZ
 
 
@@ -60,6 +61,7 @@ ORDER BY expenses_usd DESC;
 def expenses_categorized_historic(
     all_expenses: pd.DataFrame,  # noqa: ARG001
     periodo: str,
+    only_net_expenses: bool,
 ) -> pd.DataFrame:
     """
     Create a DataFrame with all expenses in a given period.
@@ -76,6 +78,7 @@ def expenses_categorized_historic(
     ----
         all_expenses (pd.DataFrame): DataFrame with all expenses.
         periodo (str): The period to filter the expenses.
+        only_net_expenses (bool): If True, it will return the net expenses.
 
     """
     period_date = datetime.strptime(periodo, "%Y-%m-%d").replace(tzinfo=TZ).date()
@@ -100,6 +103,7 @@ ExpensesForPeriod AS (
         SUM(amount_ars) AS expenses_ars
     FROM all_expenses
     WHERE date < '{periodo}-01'::date
+        {"AND NOT array_contains(tags, 'exclude')" if only_net_expenses else ""}
     GROUP BY CATEGORY
 )
 SELECT

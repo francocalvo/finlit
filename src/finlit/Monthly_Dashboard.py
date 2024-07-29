@@ -76,17 +76,21 @@ engine = create_engine("postgresql://postgres:postgres@localhost:5432/finances")
 with st.sidebar:
     st.title("Monthly Expenses")
 
+    # Date picker
+    ## Year
     year_list = list(range(2022, datetime.now(tz=TZ).year + 1))[::-1]
     selected_year = st.selectbox("Select a year", year_list)
 
+    ## Months
     if selected_year == datetime.now(tz=TZ).year:
         # Only show months up to the current month
         month_list = list(range(1, datetime.now(tz=TZ).month + 1))[::-1]
     else:
         month_list = list(range(1, 13))[::-1]
-
     selected_month = st.selectbox("Select a month", month_list)
+
     periodo = f"{selected_year}-{selected_month:02d}-01"
+    only_net_expenses = st.checkbox("Show net expenses", value=True)
 
 st.title("Monthly Overview")
 
@@ -99,16 +103,11 @@ st.title("Monthly Overview")
 
 # Dataframes
 
-all_expenses_complete: pd.DataFrame = AllExpensesDataset(
-    ledger, "all_expenses"
-).build()
-all_income_complete: pd.DataFrame = AllIncomeDataset(
-    ledger, "all_income"
-).build()
+all_expenses_complete: pd.DataFrame = AllExpensesDataset(ledger, "all_expenses").build()
+all_income_complete: pd.DataFrame = AllIncomeDataset(ledger, "all_income").build()
 
-expenses_period = all_expenses_period(all_expenses_complete, periodo)
+expenses_period = all_expenses_period(all_expenses_complete, periodo, only_net_expenses)
 income_period = all_income_period(all_income_complete, periodo)
-
 
 #########################
 ###### Dataframes #######
@@ -116,8 +115,9 @@ income_period = all_income_period(all_income_complete, periodo)
 
 expenses_per_cat = expenses_categorized(expenses_period)
 expenses_per_cat_historic = expenses_categorized_historic(
-    all_expenses_complete, periodo
+    all_expenses_complete, periodo, only_net_expenses
 )
+
 expenses_historic = expenses_historic_ratios(all_expenses_complete, all_income_complete)
 
 
@@ -154,8 +154,8 @@ max_cat_expense = expenses_per_cat["expenses_usd"].max()
 ######## Ratios #########
 #########################
 
-net_expense_ratio = calculate.net_expense_ratio(expenses_period, income_period)
-gross_expense_ratio = round(expenses_usd / income_usd, 2)
+# expense_ratio = calculate.net_expense_ratio(expenses_period, income_period)
+expense_ratio = round(expenses_usd / income_usd, 2)
 
 
 #######################
@@ -180,22 +180,10 @@ with cols[0]:
     with subcols[0]:
         st.plotly_chart(
             gauge_expense_chart(
-                net_expense_ratio,
+                expense_ratio,
                 IDEAL_EXPENSE_RATIO,
                 CRITICAL_EXPENSE_RATIO,
-                "Net Expense Ratio",
-                height=120,
-            ),
-            use_container_width=True,
-            theme=None,
-        )
-
-        st.plotly_chart(
-            gauge_expense_chart(
-                gross_expense_ratio,
-                IDEAL_EXPENSE_RATIO,
-                CRITICAL_EXPENSE_RATIO,
-                "Gross Expense Ratio",
+                f"{'Net' if only_net_expenses else 'Gross'} Expense Ratio",
                 height=120,
             ),
             use_container_width=True,
