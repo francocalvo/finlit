@@ -14,7 +14,7 @@ from finlit.data.datasets import NetworthHistoryDataset
 from finlit.data.transformations.portfolio_assets import PorfolioAssets
 from finlit.utils import create_parser, setup_logger, style_css
 from finlit.viz.portfolio.holdings_piechart import holdings_chart
-from finlit.viz.portfolio.networth_chart import networth_chart
+from finlit.viz.portfolio.networth_chart import NetworthSubset, networth_chart
 
 tz = pytz.timezone("America/Argentina/Cordoba")
 
@@ -79,6 +79,10 @@ def creater_filter_func(portfolio: str) -> Callable:
     def filter_func(x) -> bool:  # noqa: ANN001
         prefix = f"Assets:Inversiones:{portfolio}"
 
+        if x.account.lower()[: len(prefix)] == prefix.lower():
+            logger.info(
+                f"len(prefix), x.account.lower()[: len(prefix)].lower()): {len(prefix), x.account.lower()[: len(prefix)].lower()}"
+            )
         return x.account.lower()[: len(prefix)] == prefix.lower()
 
     return filter_func
@@ -92,6 +96,7 @@ argy_porfolio = p_df.loc[p_df["portfolio"] == "Argentina"]
 investment_history = NetworthHistoryDataset(ledger)
 
 argy_func = creater_filter_func("ARG")
+re_func = creater_filter_func("RE")
 global_func = creater_filter_func("US")
 
 # All investments
@@ -100,10 +105,21 @@ investment_history_df = investment_history.build(investments=True)
 argy_investment_history_df = investment_history.build(
     investments=True, filter_func=argy_func
 )
+# Real State investments
+re_investment_history_df = investment_history.build(
+    investments=True, filter_func=re_func
+)
 # Global investments
 global_investment_history_df = investment_history.build(
     investments=True, filter_func=global_func
 )
+
+nw_subsets = [
+    NetworthSubset("argy", argy_investment_history_df, color="coral"),
+    NetworthSubset("global", global_investment_history_df, color="green"),
+    NetworthSubset("realestate", re_investment_history_df, color="orange"),
+]
+
 
 #######################
 
@@ -114,9 +130,7 @@ global_investment_history_df = investment_history.build(
 cols = st.columns(spec=[3, 1])
 
 with cols[0]:
-    nw_chart = networth_chart(
-        investment_history_df, global_investment_history_df, argy_investment_history_df
-    )
+    nw_chart = networth_chart(investment_history_df, nw_subsets)
     st.subheader("Invested assets")
     st.altair_chart(nw_chart, use_container_width=True, theme="streamlit")  # type: ignore[]
 
@@ -178,4 +192,3 @@ setInterval(centerPlotly, 1000);
     height=0,
     width=0,
 )
-

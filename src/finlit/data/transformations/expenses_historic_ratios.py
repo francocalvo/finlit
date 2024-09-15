@@ -3,6 +3,7 @@ Module with the function expenses_historic_ratios.
 """
 
 import logging
+from typing import Tuple
 
 import duckdb
 import pandas as pd
@@ -13,7 +14,7 @@ logger.setLevel(logging.INFO)
 
 
 @st.cache_data
-def expenses_historic_ratios(
+def expenses_monthly_ratios(
     all_expenses: pd.DataFrame,  # noqa: ARG001
     all_income: pd.DataFrame,  # noqa: ARG001
 ) -> pd.DataFrame:
@@ -34,12 +35,6 @@ def expenses_historic_ratios(
         all_income (pd.DataFrame): DataFrame with all income.
 
     """
-    logger.debug(
-        "Excluded rows from all_expenses: \n%s",
-        duckdb.query(
-            "SELECT * FROM all_expenses WHERE array_contains(tags, 'exclude')"
-        ),
-    )
 
     expenses_historic = duckdb.query(
         """
@@ -115,4 +110,77 @@ def expenses_historic_ratios(
     expenses_historic = expenses_historic.set_index("x")
     return expenses_historic.reset_index().melt(
         "x", var_name="category", value_name="y"
+    )
+
+
+@st.cache_data
+def expense_historic_ratio(
+    all_expenses: pd.DataFrame,  # noqa: ARG001
+    all_income: pd.DataFrame,  # noqa: ARG001
+) -> Tuple[float, float]:
+    """
+    Create a DataFrame with all expenses in a given period.
+
+    The DataFrame should contain the following columns:
+        - Date: Date of the expense.
+        - Category: Category of the expense.
+        - Subcategory: Subcategory of the expense.
+        - Narration: Description of the expense.
+        - Amount_ars: Amount of the expense in ARS.
+        - Amount_usd: Amount of the expense in USD.
+
+    Args:
+    ----
+        all_expenses (pd.DataFrame): DataFrame with all expenses.
+        all_income (pd.DataFrame): DataFrame with all income.
+
+    """
+
+    results = duckdb.query(
+        """
+    WITH IncomeSum AS (
+        SELECT
+            SUM(Amount_Usd) AS Income
+        FROM
+            all_income
+    ),
+    ExpenseSum AS (
+        SELECT
+            SUM(Amount_Usd) AS Expenses
+        FROM
+            all_expenses
+    ),
+    NetIncomeSum AS (
+        SELECT
+            SUM(Amount_Usd) AS NetIncome
+        FROM
+            all_income
+        WHERE
+            Origin = 'Job'
+    ),
+    NetExpenseSum AS (
+        SELECT
+            SUM(Amount_Usd) AS NetExpenses
+        FROM
+            all_expenses
+        WHERE
+            NOT array_contains(tags, 'exclude')
+    ),
+    Combined AS (
+        SELECT
+            (SELECT Income FROM IncomeSum) AS Income,
+            (SELECT Expenses FROM ExpenseSum) AS Expenses,
+            (SELECT NetIncome FROM NetIncomeSum) AS NetIncome,
+            (SELECT NetExpenses FROM NetExpenseSum) AS NetExpenses
+    )
+    SELECT
+        ROUND(Expenses / Income * 100, 2) AS RatioBruto,
+        ROUND(NetExpenses / NetIncome * 100, 2) AS RatioNeto
+    FROM Combined;
+            """
+    ).to_df()
+
+    return (
+        results.iloc[0]["RatioBruto"],
+        results.iloc[0]["RatioNeto"],
     )

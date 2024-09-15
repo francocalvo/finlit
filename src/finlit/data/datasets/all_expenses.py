@@ -48,7 +48,7 @@ class AllExpensesDataset(Dataset):
             narration AS narration,
             NUMBER(CONVERT(POSITION, 'ARS', DATE)) AS amount_ars,
             NUMBER(CONVERT(POSITION, 'USD', DATE)) AS amount_usd,
-            FIRST(tags) AS tags
+            tags
         WHERE account ~ '^Expenses'
         ORDER BY date DESC
         """

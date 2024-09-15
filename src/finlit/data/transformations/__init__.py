@@ -10,7 +10,8 @@ from finlit.data.transformations.expenses_categorized import (
     expenses_categorized_historic,
 )
 from finlit.data.transformations.expenses_historic_ratios import (
-    expenses_historic_ratios,
+    expense_historic_ratio,
+    expenses_monthly_ratios,
 )
 from finlit.data.transformations.expenses_showcase import expenses_showcase
 
@@ -21,5 +22,6 @@ __all__ = [
     "expenses_categorized",
     "expenses_categorized_historic",
     "expenses_showcase",
-    "expenses_historic_ratios",
+    "expenses_monthly_ratios",
+    "expense_historic_ratio",
 ]

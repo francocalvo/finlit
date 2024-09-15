@@ -18,7 +18,11 @@ import streamlit as st
 
 
 @st.cache_data
-def expenses_historic_cat_chart(source: pd.DataFrame) -> alt.LayerChart:
+def expenses_historic_ratio_chart(
+    source: pd.DataFrame,
+    gross_ratio: float,
+    net_ratio: float,
+) -> alt.LayerChart:
     """
     Create a line chart to display the historic expenses ratios.
 
@@ -32,6 +36,8 @@ def expenses_historic_cat_chart(source: pd.DataFrame) -> alt.LayerChart:
     Args:
     ----
         source (pd.DataFrame): The data to be displayed in the chart.
+        gross_ratio (float): The gross ratio.
+        net_ratio (float): The net ratio.
 
     """
     # Create a selection that chooses the nearest point & selects based on x-value
@@ -60,8 +66,22 @@ def expenses_historic_cat_chart(source: pd.DataFrame) -> alt.LayerChart:
                 ),
             ),
             x=alt.X("x:T", title="Date", axis=alt.Axis(format=("%b %Y"))),
-            y=alt.Y("y:Q", title="Ratio (%)", scale=alt.Scale(domain=(0, 100))),
+            y=alt.Y("y:Q", title="Ratio (%)", scale=alt.Scale(domain=(10, 80))),
         )
+    )
+
+    # Horizontal line for the gross ratio
+    gross_line = (
+        alt.Chart(pd.DataFrame({"y": [gross_ratio]}))
+        .mark_rule(color="red", strokeDash=[3, 3])
+        .encode(y="y:Q")
+    )
+
+    # Horizontal line for the net ratio
+    net_line = (
+        alt.Chart(pd.DataFrame({"y": [net_ratio]}))
+        .mark_rule(color="orange", strokeDash=[3, 3])
+        .encode(y="y:Q")
     )
 
     # Draw points on the line, and highlight based on selection
@@ -87,7 +107,13 @@ def expenses_historic_cat_chart(source: pd.DataFrame) -> alt.LayerChart:
     )
 
     # Put the five layers into a chart and bind the data
-    return alt.layer(line, points, rules).properties(
+    return alt.layer(
+        line,
+        gross_line,
+        net_line,
+        points,
+        rules,
+    ).properties(
         title="Historic Expenses Ratios",
         height=600,
     )

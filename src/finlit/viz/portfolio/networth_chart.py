@@ -3,20 +3,29 @@ Net worth summary chart.
 """
 
 import logging
+from dataclasses import dataclass
+from typing import List
 
 import altair as alt
 import pandas as pd
+import streamlit as st
 
-from finlit.constants import CYAN_COLOR, GREEN_COLOR, RED_COLOR
+from finlit.constants import CYAN_COLOR, RED_COLOR
 
 logger = logging.getLogger()
+
+
+@dataclass
+class NetworthSubset:
+    name: str
+    df: pd.DataFrame
+    color: str
 
 
 # @st.cache_data
 def networth_chart(
     all_df: pd.DataFrame,
-    global_df: pd.DataFrame,
-    argy_df: pd.DataFrame,
+    subsets: List[NetworthSubset],
 ) -> alt.LayerChart:
     """
     Create the net worth summary chart.
@@ -28,10 +37,9 @@ def networth_chart(
     Args:
     ----
         all_df (pd.DataFrame): DataFrame with the net worth projections.
-        balance_df (pd.DataFrame): DataFrame with the balance sheet data.
+        subsets (list[NetworthSubset]): List of NetworthSubset with the net worth projections.
 
     """
-
     # Last month of the data
     today = pd.Timestamp.today()
     line_color = CYAN_COLOR
@@ -39,14 +47,20 @@ def networth_chart(
     # Less than today
     # Filter only the first day of the month
     all_df = all_df[(all_df["date"] < today)]
-    global_df = global_df[(global_df["date"] < today)]
-    argy_df = argy_df[(argy_df["date"] < today)]
+    for subset in subsets:
+        subset.df = subset.df[(subset.df["date"] < today)]
 
-    merged_df = all_df.merge(global_df, on="date", how="left", suffixes=("", "_global"))
-    merged_df = merged_df.merge(argy_df, on="date", how="left", suffixes=("", "_argy"))
-    merged_df = merged_df.filter(
-        ["date", "net_worth", "net_worth_global", "net_worth_argy"]
-    )
+    # for subset in subsets:
+    #     st.write(subset.name)
+    #     st.write(subset.df)
+
+    merged_df = all_df.filter(["date", "net_worth"])
+    for subset in subsets:
+        merged_df = merged_df.merge(
+            subset.df, on="date", how="left", suffixes=("", f"_{subset.name}")
+        )
+
+    st.write(merged_df)
 
     nearest = alt.selection_point(
         nearest=True,
@@ -69,41 +83,33 @@ def networth_chart(
         )
     ).properties(height=800)
 
-    line_argy = (
-        alt.Chart(merged_df)
-        .mark_line(interpolate="basis")
-        .encode(
-            x=alt.X("date:T", title="Date", axis=alt.Axis(format=("%b %Y"))),
-            y=alt.Y(
-                "net_worth_argy:Q",
-                title="Net worth",
-                axis=alt.Axis(format="~s"),
-            ),
-            color=alt.value(CYAN_COLOR),
-        )
-    ).properties(height=800)
+    lines = [line]
 
-    line_global = (
-        alt.Chart(merged_df)
-        .mark_line(interpolate="basis")
-        .encode(
-            x=alt.X("date:T", title="Date", axis=alt.Axis(format=("%b %Y"))),
-            y=alt.Y(
-                "net_worth_global:Q",
-                title="Net worth",
-                axis=alt.Axis(format="~s"),
-            ),
-            color=alt.value(GREEN_COLOR),
-        )
-    ).properties(height=800)
+    for subset in subsets:
+        line = (
+            alt.Chart(merged_df)
+            .mark_line(interpolate="basis")
+            .encode(
+                x=alt.X("date:T", title="Date", axis=alt.Axis(format=("%b %Y"))),
+                y=alt.Y(
+                    f"net_worth_{subset.name}:Q",
+                    title="Net worth",
+                    axis=alt.Axis(format="~s"),
+                ),
+                color=alt.value(subset.color),
+            )
+        ).properties(height=800)
+
+        lines.append(line)
 
     # Draw line at coast fire value
     ver_rule = (
         alt.Chart(merged_df)
-        .mark_point()
+        .mark_rule()
         .encode(
-            x=alt.X("date:T", title="Date", axis=alt.Axis(format=("%b %Y"))),
-            y=alt.Y("net_worth:Q", title="Net worth", axis=alt.Axis(format="~s")),
+            # x=alt.X("date:T", title="Date", axis=alt.Axis(format=("%b %Y"))),
+            x="date:T",
+            # y=alt.Y("net_worth:Q", title="Net worth", axis=alt.Axis(format="~s")),
             color=alt.value(line_color),  # Specific color for coast fire
             opacity=alt.condition(nearest, alt.value(1), alt.value(0)),  # type: ignore # noqa: PGH003
             tooltip=[
@@ -119,21 +125,18 @@ def networth_chart(
                     title="Invested",
                     format=".2s",
                 ),
+            ]
+            + [
                 alt.Tooltip(
-                    "net_worth_argy:Q",
+                    f"net_worth_{subset.name}:Q",
                     type="quantitative",
-                    title="Invested in Argentina",
+                    title=f"Invested in {subset.name.capitalize()}",
                     format=".2s",
-                ),
-                alt.Tooltip(
-                    "net_worth_global:Q",
-                    type="quantitative",
-                    title="Invested in Global",
-                    format=".2s",
-                ),
+                )
+                for subset in subsets
             ],
         )
         .add_params(nearest)
     )
 
-    return alt.layer(line, line_argy, line_global, ver_rule)
+    return alt.layer(line, ver_rule, *lines)

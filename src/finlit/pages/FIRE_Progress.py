@@ -151,7 +151,8 @@ coast_projection_df = network_projection.build_coast_fire()
 
 # Contributions
 probable_contrib = income - expenses
-possible_contrib = income * params.save_rate / 100
+# possible_contrib = income * params.save_rate / 100
+possible_contrib = 3000
 conservative_contrib = probable_contrib * 0.75
 optimal_contrib = calculate.optimal_contribution(
     net_worth, params.return_rate, params.years, params.dream_total

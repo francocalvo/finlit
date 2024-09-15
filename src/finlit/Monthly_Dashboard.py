@@ -17,15 +17,16 @@ from finlit.data.transformations import (
     all_expenses_period,
     all_income_period,
     calculate,
+    expense_historic_ratio,
     expenses_categorized,
     expenses_categorized_historic,
-    expenses_historic_ratios,
+    expenses_monthly_ratios,
     expenses_showcase,
 )
 from finlit.utils import create_parser, format_number, setup_logger, style_css
 from finlit.viz.monthly_expenses import (
     expenses_bar_chart,
-    expenses_historic_cat_chart,
+    expenses_historic_ratio_chart,
     expenses_pie_chart,
     gauge_expense_chart,
 )
@@ -118,7 +119,10 @@ expenses_per_cat_historic = expenses_categorized_historic(
     all_expenses_complete, periodo, only_net_expenses
 )
 
-expenses_historic = expenses_historic_ratios(all_expenses_complete, all_income_complete)
+expenses_historic = expenses_monthly_ratios(all_expenses_complete, all_income_complete)
+gross_ratio, net_ratio = expense_historic_ratio(
+    all_expenses_complete, all_income_complete
+)
 
 
 #########################
@@ -230,6 +234,6 @@ st.divider()
 
 
 st.altair_chart(
-    expenses_historic_cat_chart(expenses_historic),  # type: ignore # noqa: PGH003
+    expenses_historic_ratio_chart(expenses_historic, gross_ratio, net_ratio),  # type: ignore # noqa: PGH003
     use_container_width=True,
 )
