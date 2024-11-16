@@ -42,34 +42,47 @@ def expenses_bar_chart(
     ex_ars = "expenses_ars"
     cat = "category"
 
+    logger.info(data[ex_usd].max())
+
     return (
         alt.Chart(data)
         .mark_bar()
         .encode(
             x=alt.X(
                 ex_usd,
-                title=None,
-                scale=alt.Scale(
-                    domain=(0, data[ex_usd].max() if upper_limit <= 0 else upper_limit)
-                ),
+                axis=alt.Axis(labelAngle=0),
             ),
+            yOffset="type",
             y=alt.Y(
                 cat,
-                title=None,
-                sort="-x",
-                axis=alt.Axis(labelLimit=200),
-                scale=alt.Scale(paddingInner=0.1),
+                axis=alt.Axis(grid=False),
             ),
-            color=alt.Color(
-                ex_usd,
-                scale=alt.Scale(
-                    scheme={
-                        "name": "blues",
-                    },
-                    reverse=True,
-                ),
-                legend=None,
-            ),
+            color="type",
+            # y=alt.Y(
+            #     "type",
+            #     title=None,
+            #     # sort="y",
+            #     axis=alt.Axis(labelLimit=200),
+            #     scale=alt.Scale(paddingInner=0.1),
+            # ),
+            # yOffset="type",
+            # x=alt.X(
+            #     ex_usd,
+            #     title="Test",
+            #     # scale=alt.Scale(
+            #     #     domain=(0, data[ex_usd].max() if upper_limit <= 0 else upper_limit)
+            #     # )
+            # ),
+            # color=alt.Color(
+            #     ex_usd,
+            #     scale=alt.Scale(
+            #         scheme={
+            #             "name": "blues",
+            #         },
+            #         reverse=True,
+            #     ),
+            #     legend=None,
+            # ),
             tooltip=[
                 alt.Tooltip(cat, title="Category"),
                 alt.Tooltip(ex_usd, format="$.2f", title="In USD"),

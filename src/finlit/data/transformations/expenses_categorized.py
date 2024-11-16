@@ -2,16 +2,18 @@
 Create a DataFrame with all expenses with categories and subcategories.
 """
 
+import logging
 from datetime import datetime
 
 import duckdb
 import pandas as pd
-import streamlit as st
 
 from finlit.constants import INITAL_MONTH, INITAL_YEAR, TZ
 
+logger = logging.getLogger()
 
-@st.cache_data
+
+# @st.cache_data
 def expenses_categorized(
     all_expenses: pd.DataFrame,  # noqa: ARG001
 ) -> pd.DataFrame:
@@ -31,7 +33,7 @@ def expenses_categorized(
         all_expenses (pd.DataFrame): DataFrame with all expenses.
 
     """
-    return duckdb.query(
+    nnnn = duckdb.query(
         """
 WITH UniqueCategories AS (
     SELECT DISTINCT CATEGORY
@@ -55,9 +57,10 @@ LEFT JOIN ExpensesForPeriod efp
 ORDER BY expenses_usd DESC;
        """
     ).to_df()
+    logger.info(nnnn)
+    return nnnn
 
 
-@st.cache_data
 def expenses_categorized_historic(
     all_expenses: pd.DataFrame,  # noqa: ARG001
     periodo: str,
@@ -83,6 +86,8 @@ def expenses_categorized_historic(
     """
     period_date = datetime.strptime(periodo, "%Y-%m-%d").replace(tzinfo=TZ).date()
     initial_date = datetime(INITAL_YEAR, INITAL_MONTH, 1, tzinfo=TZ).date()
+    logger.info(period_date)
+    logger.info(initial_date)
 
     month_diff = (
         (period_date.year - initial_date.year) * 12
@@ -90,7 +95,7 @@ def expenses_categorized_historic(
         - initial_date.month
     )
 
-    return duckdb.query(
+    dfffff = duckdb.query(
         f"""
 WITH UniqueCategories AS (
     SELECT DISTINCT CATEGORY
@@ -116,3 +121,5 @@ LEFT JOIN ExpensesForPeriod efp
 ORDER BY expenses_usd DESC;
        """  # noqa: S608
     ).to_df()
+    logger.info(dfffff)
+    return dfffff

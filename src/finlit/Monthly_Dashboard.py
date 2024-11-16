@@ -114,10 +114,31 @@ income_period = all_income_period(all_income_complete, periodo)
 ###### Dataframes #######
 #########################
 
+logger.debug("Calling expenses_categorized")
 expenses_per_cat = expenses_categorized(expenses_period)
+logger.debug("Returned from expenses_categorized")
+logger.debug("Calling expenses_categorized_historic")
 expenses_per_cat_historic = expenses_categorized_historic(
     all_expenses_complete, periodo, only_net_expenses
 )
+logger.debug("Returned from expenses_categorized_historic")
+
+# Filter out historic categories with no expenses in the current period
+filtered_categories = expenses_per_cat["category"].unique()
+expenses_per_cat_historic = expenses_per_cat_historic[
+    expenses_per_cat_historic["category"].isin(filtered_categories)
+]
+logger.debug("$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$")
+logger.debug(expenses_per_cat_historic)
+
+# Union both dataframes
+expenses_per_cat["type"] = "period"
+expenses_per_cat_historic["type"] = "historic"
+merged_per_cat = pd.concat([expenses_per_cat, expenses_per_cat_historic])
+merged_per_cat = merged_per_cat.sort_values("category", ascending=False)
+
+logger.debug("$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$")
+logger.debug(merged_per_cat)
 
 expenses_historic = expenses_monthly_ratios(all_expenses_complete, all_income_complete)
 gross_ratio, net_ratio = expense_historic_ratio(
@@ -209,11 +230,18 @@ with cols[0]:
         title="Monthly expenses per category",
     )
     chart_historic = expenses_bar_chart(
-        expenses_per_cat,
+        expenses_per_cat_historic,
         upper_limit=max_cat_expense,
         title="Historic monthly expenses per category",
     )
 
+    chartchart = expenses_bar_chart(
+        merged_per_cat,
+        upper_limit=max_cat_expense,
+        title="TESTTEST",
+    )
+
+    st.altair_chart(chartchart, use_container_width=True)
     st.altair_chart(chart, use_container_width=True)
     st.altair_chart(chart_historic, use_container_width=True)
 
